@@ -6,8 +6,7 @@ authors = ["moshe <moshebeutel@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "3.8.10"
-pypolyagamma = "^1.2.3"
+python = "3.8.1"
 torch = "^2.3.1"
 torchvision = "^0.18.1"
 tqdm = "^4.66.4"

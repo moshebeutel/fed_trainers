@@ -2,11 +2,13 @@ import argparse
 import copy
 import logging
 from collections import OrderedDict
-from typing import Dict
+from typing import Dict, Optional
 import numpy as np
 import torch
 import wandb
 from sklearn import metrics
+from sklearn.decomposition import PCA
+from torch import Tensor
 from tqdm import trange
 from dataset import gen_random_loaders
 from model import ResNet
@@ -55,6 +57,86 @@ def get_model(args):
     model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes)
     initialize_weights(model)
     return model
+
+
+@torch.no_grad()
+def get_dp_noise(args, net):
+    noises = {}
+    for n, p in net.named_parameters():
+        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
+                             size=(args.num_steps, *p.shape))
+        noises[n] = noise
+    flatten_noises = flatten_tensor(noises)
+    return flatten_noises
+
+
+# GEP
+
+def flatten_tensor(tensor_list) -> torch.Tensor:
+    """
+    Taken from https://github.com/dayu11/Gradient-Embedding-Perturbation
+    """
+    for i in range(len(tensor_list)):
+        tensor_list[i] = tensor_list[i].reshape([tensor_list[i].shape[0], -1])
+    flatten_param = torch.cat(tensor_list, dim=1)
+    del tensor_list
+    return flatten_param
+
+
+@torch.no_grad()
+def check_approx_error(L, target) -> float:
+    L = L.to(target.device)
+    encode = torch.matmul(target, L)  # n x k
+    decode = torch.matmul(encode, L.T)
+    error = torch.sum(torch.square(target - decode))
+    target = torch.sum(torch.square(target))
+
+    return -1.0 if target.item() == 0 else error.item() / target.item()
+
+
+def get_bases(pub_grad, num_bases):
+    num_k = pub_grad.shape[0]
+    num_p = pub_grad.shape[1]
+
+    num_bases = min(num_bases, min(num_p, num_k))
+
+    pca = PCA(n_components=num_bases)
+    pca.fit(pub_grad.cpu().detach().numpy())
+
+    error_rate = check_approx_error(torch.from_numpy(pca.components_).T, pub_grad)
+
+    return num_bases, error_rate, pca
+
+
+def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> PCA:
+    num_bases: int
+    pub_error: float
+    pca: PCA
+    num_bases, pub_error, pca = get_bases(basis_gradients, num_basis_elements)
+    return pca
+
+
+def embed_grad(grad: torch.Tensor, pca: PCA) -> torch.Tensor:
+    grad_np: np.ndarray = grad.cpu().detach().numpy()
+    embedding: np.ndarray = pca.transform(grad_np)
+    return torch.from_numpy(embedding)
+
+
+def project_back_embedding(embedding: torch.Tensor, pca: PCA, device: torch.device) -> torch.Tensor:
+    embedding_np: np.ndarray = embedding.cpu().detach().numpy()
+    grad_np: np.ndarray = pca.inverse_transform(embedding_np)
+    return torch.from_numpy(grad_np).to(device)
+
+
+def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: Optional[torch.Tensor],
+                                 basis_gradients_history_size: int) -> Tensor:
+    basis_gradients = torch.cat((basis_gradients, new_gradients), dim=0) \
+        if basis_gradients is not None \
+        else basis_gradients
+    basis_gradients = basis_gradients[-basis_gradients_history_size:] \
+        if basis_gradients_history_size < basis_gradients.shape[0] \
+        else basis_gradients
+    return basis_gradients
 
 
 @torch.no_grad()
@@ -123,8 +205,8 @@ def eval_model(args, global_model, client_ids, loaders):
 
 
 def train(args):
-
-    args_list = [(k, vars(args)[k]) for k in ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip"]]
+    fields_list = ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip", "noise_multiplier"]
+    args_list = [(k, vars(args)[k]) for k in fields_list]
 
     logging.info(f' *** Training for args {args_list} ***')
 
@@ -138,6 +220,11 @@ def train(args):
     best_model = copy.deepcopy(net)
     criteria = torch.nn.CrossEntropyLoss()
 
+    dp_noise_dict = get_dp_noise(args, net)
+    dp_noise_dict = {n: noise.to(device) for n, noise in dp_noise_dict.items()}
+
+    basis_gradients: Optional[torch.Tensor] = None
+
     train_loaders, val_loaders, test_loaders = get_dataloaders(args)
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
@@ -150,8 +237,12 @@ def train(args):
 
         # initialize global model params
         params = OrderedDict()
+        grads = OrderedDict()
+        prev_params = OrderedDict()
         for n, p in net.named_parameters():
             params[n] = torch.zeros_like(p.data)
+            grads[n] = torch.zeros_like(p.data)
+            prev_params[n] = p.detach()
 
         # iterate over each client
         train_avg_loss = 0
@@ -196,13 +287,26 @@ def train(args):
                         f"test avg acc: {val_avg_acc:.4f},"
                         f"best test acc: {best_acc:.2f}"
                     )
-            # get client parameters and sum.
+                # end of for k, batch in enumerate(train_loader):
+            # end of for i in range(args.inner_steps):
+
+            # get client grads and sum.
             for n, p in local_net.named_parameters():
                 params[n] += p.data
+                grads[n] += p.data.detach() - prev_params[n]
 
+        grads_flattened = flatten_tensor(list(grads.values()))
+        basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients,
+                                                       args.basis_gradients_history_size)
+        pca = compute_subspace(basis_gradients, args.basis_gradients_history_size)
+        embedded_grads = embed_grad(grads_flattened, pca)
+        noised_embedded_grads = embedded_grads + dp_noise_dict[step]
+        reconstructed_grad = project_back_embedding(noised_embedded_grads, pca, device)
         # average parameters
+        offset = 0
         for n, p in params.items():
-            params[n] = p / args.num_client_agg
+            params[n] = (p + reconstructed_grad[offset: offset + p.numel()]) / args.num_client_agg
+            offset += p.numel()
 
         # update new parameters of global net
         net.load_state_dict(params)
@@ -285,11 +389,14 @@ if __name__ == '__main__':
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=10, help="number of clients per step")
+    parser.add_argument("--num-client-agg", type=int, default=50, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
-    parser.add_argument("--noise_sigma", type=float, default=0.0, help="gradient clip")
+    parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
+                                                                            "to be multiplied by clip")
+    parser.add_argument("--basis-gradients-history-size", type=int,
+                        default=100, help="amount of past gradients participating in embedding subspace computation")
 
     #############################
     #       General args        #
@@ -310,8 +417,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100'], help="dir path for MNIST dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=30, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=30, help="number of private clients")
+    parser.add_argument("--num-clients", type=int, default=50, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=50, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
 
