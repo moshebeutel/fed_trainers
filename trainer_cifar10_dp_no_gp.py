@@ -58,6 +58,16 @@ def get_model(args):
 
 
 @torch.no_grad()
+def get_dp_noise(args, net):
+    noises = {}
+    for n, p in net.named_parameters():
+        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
+                             size=(args.num_steps, args.num_client_agg, *p.shape))
+        noises[n] = noise
+    return noises
+
+
+@torch.no_grad()
 def eval_model(args, global_model, client_ids, loaders):
     device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
@@ -124,7 +134,8 @@ def eval_model(args, global_model, client_ids, loaders):
 
 def train(args):
 
-    args_list = [(k, vars(args)[k]) for k in ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip"]]
+    fields_list = ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip", "noise_multiplier"]
+    args_list = [(k, vars(args)[k]) for k in fields_list]
 
     logging.info(f' *** Training for args {args_list} ***')
 
@@ -137,6 +148,9 @@ def train(args):
     net = net.to(device)
     best_model = copy.deepcopy(net)
     criteria = torch.nn.CrossEntropyLoss()
+
+    dp_noise_dict = get_dp_noise(args, net)
+    dp_noise_dict = {n: noise.to(device) for n, noise in dp_noise_dict.items()}
 
     train_loaders, val_loaders, test_loaders = get_dataloaders(args)
 
@@ -198,7 +212,7 @@ def train(args):
                     )
             # get client parameters and sum.
             for n, p in local_net.named_parameters():
-                params[n] += p.data
+                params[n] += p.data + dp_noise_dict[n][step, j]
 
         # average parameters
         for n, p in params.items():
@@ -285,11 +299,12 @@ if __name__ == '__main__':
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=10, help="number of clients per step")
+    parser.add_argument("--num-client-agg", type=int, default=50, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
-    parser.add_argument("--noise_sigma", type=float, default=0.0, help="gradient clip")
+    parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
+                                                                            "to be multiplied by clip")
 
     #############################
     #       General args        #
@@ -310,8 +325,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100'], help="dir path for MNIST dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=30, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=30, help="number of private clients")
+    parser.add_argument("--num-clients", type=int, default=50, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=50, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
 
