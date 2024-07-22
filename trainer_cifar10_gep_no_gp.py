@@ -60,14 +60,10 @@ def get_model(args):
 
 
 @torch.no_grad()
-def get_dp_noise(args, net):
-    noises = {}
-    for n, p in net.named_parameters():
-        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
-                             size=(args.num_steps, *p.shape))
-        noises[n] = noise
-    flatten_noises = flatten_tensor(noises)
-    return flatten_noises
+def get_dp_noise(args) -> torch.Tensor:
+    noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
+                         size=(args.num_steps, args.num_client_agg, args.basis_gradients_history_size))
+    return noise
 
 
 # GEP
@@ -78,6 +74,7 @@ def flatten_tensor(tensor_list) -> torch.Tensor:
     """
     for i in range(len(tensor_list)):
         tensor_list[i] = tensor_list[i].reshape([tensor_list[i].shape[0], -1])
+        # tensor_list[i] = tensor_list[i].reshape(1, -1)
     flatten_param = torch.cat(tensor_list, dim=1)
     del tensor_list
     return flatten_param
@@ -132,7 +129,7 @@ def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: O
                                  basis_gradients_history_size: int) -> Tensor:
     basis_gradients = torch.cat((basis_gradients, new_gradients), dim=0) \
         if basis_gradients is not None \
-        else basis_gradients
+        else new_gradients
     basis_gradients = basis_gradients[-basis_gradients_history_size:] \
         if basis_gradients_history_size < basis_gradients.shape[0] \
         else basis_gradients
@@ -205,7 +202,10 @@ def eval_model(args, global_model, client_ids, loaders):
 
 
 def train(args):
-    fields_list = ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip", "noise_multiplier"]
+
+    fields_list = ["num_blocks", "block_size", "optimizer", "lr",
+                   "num_client_agg", "clip", "noise_multiplier", "basis_gradients_history_size"]
+
     args_list = [(k, vars(args)[k]) for k in fields_list]
 
     logging.info(f' *** Training for args {args_list} ***')
@@ -220,8 +220,7 @@ def train(args):
     best_model = copy.deepcopy(net)
     criteria = torch.nn.CrossEntropyLoss()
 
-    dp_noise_dict = get_dp_noise(args, net)
-    dp_noise_dict = {n: noise.to(device) for n, noise in dp_noise_dict.items()}
+    dp_noise: torch.Tensor = get_dp_noise(args).to(device)
 
     basis_gradients: Optional[torch.Tensor] = None
 
@@ -241,7 +240,7 @@ def train(args):
         prev_params = OrderedDict()
         for n, p in net.named_parameters():
             params[n] = torch.zeros_like(p.data)
-            grads[n] = torch.zeros_like(p.data)
+            grads[n] = []
             prev_params[n] = p.detach()
 
         # iterate over each client
@@ -293,19 +292,22 @@ def train(args):
             # get client grads and sum.
             for n, p in local_net.named_parameters():
                 params[n] += p.data
-                grads[n] += p.data.detach() - prev_params[n]
+                grads[n].append(p.data.detach() - prev_params[n])
 
-        grads_flattened = flatten_tensor(list(grads.values()))
+        grads_list = [torch.stack(grads[n]) for n, p in net.named_parameters()]
+
+        grads_flattened = flatten_tensor(grads_list)
         basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients,
                                                        args.basis_gradients_history_size)
         pca = compute_subspace(basis_gradients, args.basis_gradients_history_size)
         embedded_grads = embed_grad(grads_flattened, pca)
-        noised_embedded_grads = embedded_grads + dp_noise_dict[step]
-        reconstructed_grad = project_back_embedding(noised_embedded_grads, pca, device)
+        noised_embedded_grads = embedded_grads + dp_noise[step, :, :embedded_grads.shape[-1]]
+        aggregated_noised_embedded_grads = torch.sum(noised_embedded_grads, dim=0)
+        reconstructed_grad = project_back_embedding(aggregated_noised_embedded_grads, pca, device)
         # average parameters
         offset = 0
         for n, p in params.items():
-            params[n] = (p + reconstructed_grad[offset: offset + p.numel()]) / args.num_client_agg
+            params[n] = (p + reconstructed_grad[offset: offset + p.numel()].reshape(p.shape)) / args.num_client_agg
             offset += p.numel()
 
         # update new parameters of global net
@@ -384,16 +386,16 @@ if __name__ == '__main__':
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=30)
-    parser.add_argument("--optimizer", type=str, default='sgd',
+    parser.add_argument("--num-steps", type=int, default=100)
+    parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--num-client-agg", type=int, default=10, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
+    parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
+    parser.add_argument("--noise-multiplier", type=float, default=1.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument("--basis-gradients-history-size", type=int,
                         default=100, help="amount of past gradients participating in embedding subspace computation")
@@ -414,11 +416,11 @@ if __name__ == '__main__':
 
     parser.add_argument(
         "--data-name", type=str, default="cifar10",
-        choices=['cifar10', 'cifar100'], help="dir path for MNIST dataset"
+        choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=50, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=50, help="number of private clients")
+    parser.add_argument("--num-clients", type=int, default=30, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=30, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
 
