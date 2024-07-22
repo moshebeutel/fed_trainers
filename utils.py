@@ -62,7 +62,8 @@ def set_logger():
 
 
 def get_device(cuda=True, gpus='0'):
-    return torch.device("cuda:" + gpus if torch.cuda.is_available() and cuda else "cpu")
+    # return torch.device("cuda:" + gpus if torch.cuda.is_available() and cuda else "cpu")
+    return torch.device("cuda" if torch.cuda.is_available() and cuda else "cpu")
 
 
 def detach_to_numpy(tensor):
