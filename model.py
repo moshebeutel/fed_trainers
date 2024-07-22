@@ -154,7 +154,7 @@ class ResNet(nn.Module):
             [self._make_layer(basic_block_cls, 2 ** (i + 4), layers[i], stride=2 if i > 0 else 1)
              for i in range(len(layers))])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(64, num_classes)
+        self.fc = nn.Linear(2 ** (int(len(layers) + 3)), num_classes)
         # self.fc = FeatureModel(num_features=2 ** (int(len(layers) + 3)),
         #                        number_of_classes=num_classes,
         #                        cls_layer=True,
