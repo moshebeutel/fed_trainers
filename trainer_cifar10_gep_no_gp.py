@@ -300,7 +300,7 @@ def train(args):
         basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients,
                                                        args.basis_gradients_history_size)
         pca = compute_subspace(basis_gradients, args.basis_gradients_history_size)
-        embedded_grads = embed_grad(grads_flattened, pca)
+        embedded_grads = embed_grad(grads_flattened, pca).to(device)
         noised_embedded_grads = embedded_grads + dp_noise[step, :, :embedded_grads.shape[-1]]
         aggregated_noised_embedded_grads = torch.sum(noised_embedded_grads, dim=0)
         reconstructed_grad = project_back_embedding(aggregated_noised_embedded_grads, pca, device)
