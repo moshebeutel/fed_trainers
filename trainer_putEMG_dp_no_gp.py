@@ -1,15 +1,18 @@
 import argparse
 import copy
 import logging
+import os
 from collections import OrderedDict
+from pathlib import Path
 from typing import Dict
+import re
 import numpy as np
 import torch
 import wandb
 from sklearn import metrics
 from tqdm import trange
-from dataset import gen_random_loaders
-from model import ResNet
+
+from model import FeatureModel
 from utils import get_device, set_logger, set_seed, str2bool, initialize_weights
 
 
@@ -40,19 +43,114 @@ def get_optimizer(args, network):
 
 
 def get_dataloaders(args):
-    train_loaders, val_loaders, test_loaders = gen_random_loaders(
-        args.data_name,
-        args.data_path,
-        args.num_clients,
-        args.batch_size,
-        args.classes_per_client)
+    import pandas as pd
+    from biolab_utilities.putemg_utilities import prepare_data, Record, record_filter, data_per_id_and_date
 
-    return train_loaders, val_loaders, test_loaders
+
+    # filtered_data_folder = os.path.join(result_folder, 'filtered_data')
+    # calculated_features_folder = os.path.join(result_folder, 'calculated_features')
+    calculated_features_folder = Path('/home/user/GIT/putemg-downloader/Data-HDF5-Features-Small')
+
+    # list all hdf5 files in given input folder
+    all_files = [f.as_posix().replace('_filtered_features', '') for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
+
+    all_feature_records = [Record(os.path.basename(f)) for f in all_files]
+
+    records_filtered_by_subject = record_filter(all_feature_records)
+
+    splits_all = data_per_id_and_date(records_filtered_by_subject, n_splits=3)
+
+    # data can be additionally filtered based on subject id
+
+    # records_filtered_by_subject = record_filter(all_feature_records,
+    #                                             whitelists={"id": ["01", "02", "03", "04", "07"]})
+    # records_filtered_by_subject = pu.record_filter(all_feature_records, whitelists={"id": ["01"]})
+
+    # load feature data to memory
+    dfs: Dict[Record, pd.DataFrame] = {}
+
+    for r in records_filtered_by_subject:
+        # print("Reading features for input file: ", r)
+        filename = os.path.splitext(r.path)[0]
+        dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
+                                                       filename + '_filtered_features.hdf5')))
+
+
+
+    features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP']
+    # defines gestures to be used in shallow learn
+    gestures = {
+        0: "Idle",
+        1: "Fist",
+        2: "Flexion",
+        3: "Extension",
+        4: "Pinch index",
+        5: "Pinch middle",
+        6: "Pinch ring",
+        7: "Pinch small"
+    }
+    channel_range = {
+        "24chn": {"begin": 1, "end": 24},
+        # "8chn_1band": {"begin": 1, "end": 8},
+        "8chn_2band": {"begin": 9, "end": 16},
+        # "8chn_3band": {"begin": 17, "end": 24}
+    }
+    ch_range = channel_range['24chn']
+    num_classes = 8
+    classes_per_client = 8
+    num_clients = len(splits_all.values())
+    train_loaders, test_loaders = {}, {}
+    for client_id in range(num_clients):
+        running_loss, running_correct, running_samples = 0., 0., 0.
+
+        # iterate over each internal data
+        for i_s, subject_data in enumerate(list(splits_all.values())[client_id]):
+            is_first_iter = True
+            # get data of client
+            # prepare training and testing set based on combination of k-fold split, feature set and gesture set
+            # this is also where gesture transitions are deleted from training and test set
+            # only active part of gesture performance remains
+            data = prepare_data(dfs, subject_data, features, list(gestures.keys()))
+
+            # list columns containing only feature data
+            regex = re.compile(r'input_[0-9]+_[A-Z]+_[0-9]+')
+            cols = list(filter(regex.search, list(data["train"].columns.values)))
+
+            # strip columns to include only selected channels, eg. only one band
+            cols = [c for c in cols if (ch_range["begin"] <= int(c[c.rindex('_') + 1:]) <= ch_range["end"])]
+
+            # extract limited training x and y, only with chosen channel configuration
+            train_x = torch.tensor(data["train"][cols].to_numpy(), dtype=torch.float32)
+            train_y = torch.LongTensor(data["train"]["output_0"].to_numpy())
+            train_y[train_y > 5] -= 2
+
+            # # extract limited testing x and y, only with chosen channel configuration
+            test_x = torch.tensor(data["test"][cols].to_numpy(), dtype=torch.float32)
+            test_y_true = torch.LongTensor(data["test"]["output_0"].to_numpy())
+            test_y_true[test_y_true > 5] -= 2
+
+            train_loaders[client_id] = torch.utils.data.DataLoader(
+                torch.utils.data.TensorDataset(train_x, train_y),
+                shuffle=True,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers
+            )
+
+            test_loaders[client_id] = torch.utils.data.DataLoader(
+                torch.utils.data.TensorDataset(test_x, test_y_true),
+                shuffle=False,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers
+            )
+
+    return train_loaders, test_loaders, test_loaders
 
 
 def get_model(args):
     num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8}[args.data_name]
-    model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes)
+    assert args.data_name == 'putEMG', 'data_name should be putEMG'
+    assert num_classes == 8, 'num_classes should be 8'
+    model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
     initialize_weights(model)
     return model
 
@@ -69,7 +167,8 @@ def get_dp_noise(args, net):
 
 @torch.no_grad()
 def eval_model(args, global_model, client_ids, loaders):
-    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
+    device = get_device()
+    # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
     loss_dict: Dict[str, float] = {}
     acc_dict: Dict[str, float] = {}
@@ -142,7 +241,8 @@ def train(args):
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1 = 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
     public_clients, private_clients, dummy_clients = get_clients(args)
-    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
+    device = get_device()
+    # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
     net = get_model(args)
     net = net.to(device)
@@ -299,7 +399,7 @@ if __name__ == '__main__':
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
@@ -321,12 +421,12 @@ if __name__ == '__main__':
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default="cifar10",
-        choices=['cifar10', 'cifar100', 'putEMG'], help="dataset"
+        "--data-name", type=str, default="putEMG",
+        choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=50, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=50, help="number of private clients")
+    parser.add_argument("--num-clients", type=int, default=23, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=23, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
 
