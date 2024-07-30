@@ -70,7 +70,9 @@ class DenseBlock(nn.Module):
 
 
 class FeatureModel(nn.Module):
-    def __init__(self, num_features=128,
+    def __init__(self,
+                 num_channels=24,
+                 num_features=8,
                  number_of_classes=100,
                  cls_layer=True,
                  use_softmax=True,
@@ -83,6 +85,16 @@ class FeatureModel(nn.Module):
         self.use_softmax = use_softmax
         self._output_info_fn(
             f'FeatureModel: num_features={num_features} cls_layer={cls_layer} use_softmax={use_softmax}')
+        self._num_features = num_features
+        self._num_channels = num_channels
+        self._num_classes = number_of_classes
+        self._blk1 = nn.Conv1d(num_channels, 2 * num_channels, 3, padding=1)
+        self._blk2 = nn.Conv1d(2 * num_channels, 4 * num_channels, 3, padding=1)
+        self._blk3 = nn.Conv1d(4 * num_channels, 8 * num_channels, 3, padding=1)
+
+        self.avgpool = nn.AdaptiveAvgPool1d(1)
+        self.fc = nn.Linear(8 * num_channels, num_channels)
+
 
         # self._dense_block1 = DenseBlock(num_features, 2 * num_features)
         # use_batchnorm=use_group_norm, use_dropout=use_dropout)
@@ -100,10 +112,10 @@ class FeatureModel(nn.Module):
         # self._dense_block5 = DenseBlock(4 * num_features, 2 * num_features)
         # # use_batchnorm=use_group_norm, use_dropout=use_dropout)
 
-        self._dense_block = DenseBlock(num_features, int(0.5 * num_features))
+        # self._dense_block = DenseBlock(num_features, int(0.5 * num_features))
 
         if self.cls_layer:
-            self._output = nn.Linear(int(0.5 * num_features), number_of_classes)
+            self._output = nn.Linear(num_channels, number_of_classes)
 
     def forward(self, x):
         self._output_debug_fn(f'input {x.shape}')
@@ -120,8 +132,24 @@ class FeatureModel(nn.Module):
         # fc4 = self._dense_block4(fc3)
         # self._output_debug_fn(f'fc4 {fc4.shape}')
 
-        x = self._dense_block(x)
-        self._output_debug_fn(f'x {x.shape}')
+        x = torch.reshape(x, (x.shape[0], self._num_channels, self._num_features))
+        self._output_debug_fn(f'input {x.shape}')
+
+        x = self._blk1(x)
+        self._output_debug_fn(f'x after blk1 {x.shape}')
+
+        x = self._blk2(x)
+        self._output_debug_fn(f'x after blk2 {x.shape}')
+
+        x = self._blk3(x)
+        self._output_debug_fn(f'x after blk3 {x.shape}')
+
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
+        self._output_debug_fn(f'x after avgpool {x.shape}')
+
+        x = self.fc(x)
+        self._output_debug_fn(f'x after fc {x.shape}')
 
         output = x
         if self.cls_layer:
