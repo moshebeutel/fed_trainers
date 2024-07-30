@@ -12,7 +12,7 @@ import wandb
 from sklearn import metrics
 from tqdm import trange
 
-from model import FeatureModel
+from model import FeatureModel, MLPTarget
 from utils import get_device, set_logger, set_seed, str2bool, initialize_weights
 
 
@@ -49,7 +49,7 @@ def get_dataloaders(args):
 
     # filtered_data_folder = os.path.join(result_folder, 'filtered_data')
     # calculated_features_folder = os.path.join(result_folder, 'calculated_features')
-    calculated_features_folder = Path('/home/user/GIT/putemg-downloader/Data-HDF5-Features-Small')
+    calculated_features_folder = Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small'
 
     # list all hdf5 files in given input folder
     all_files = [f.as_posix().replace('_filtered_features', '') for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
@@ -99,10 +99,11 @@ def get_dataloaders(args):
     num_classes = 8
     classes_per_client = 8
     num_clients = len(splits_all.values())
-    train_loaders, test_loaders = {}, {}
+    train_loaders, val_loaders, test_loaders = {}, {}, {}
     for client_id in range(num_clients):
         running_loss, running_correct, running_samples = 0., 0., 0.
-
+        train_x_s, test_x_s = [], []
+        train_y_s, test_y_s = [], []
         # iterate over each internal data
         for i_s, subject_data in enumerate(list(splits_all.values())[client_id]):
             is_first_iter = True
@@ -129,28 +130,41 @@ def get_dataloaders(args):
             test_y_true = torch.LongTensor(data["test"]["output_0"].to_numpy())
             test_y_true[test_y_true > 5] -= 2
 
-            train_loaders[client_id] = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(train_x, train_y),
-                shuffle=True,
-                batch_size=args.batch_size,
-                num_workers=args.num_workers
-            )
+            train_x_s.append(train_x)
+            test_x_s.append(test_x)
+            train_y_s.append(train_y)
+            test_y_s.append(test_y_true)
 
-            test_loaders[client_id] = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(test_x, test_y_true),
-                shuffle=False,
-                batch_size=args.batch_size,
-                num_workers=args.num_workers
-            )
+        train_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(torch.cat(train_x_s[:-1]), torch.cat(train_y_s[:-1])),
+            shuffle=True,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
 
-    return train_loaders, test_loaders, test_loaders
+        val_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(torch.cat(train_x_s[-1:]), torch.cat(train_y_s[-1:])),
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
+
+        test_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(test_x, test_y_true),
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
+
+    return train_loaders, val_loaders, test_loaders
 
 
 def get_model(args):
     num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8}[args.data_name]
     assert args.data_name == 'putEMG', 'data_name should be putEMG'
     assert num_classes == 8, 'num_classes should be 8'
-    model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
+    model = MLPTarget(num_features=24*8, num_classes=num_classes, use_softmax=True)
+    # model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
     initialize_weights(model)
     return model
 
@@ -321,7 +335,7 @@ def train(args):
         # update new parameters of global net
         net.load_state_dict(params)
 
-        if step % args.eval_every == 0 or (step + 1) == args.num_steps:
+        if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -434,7 +448,7 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
     args = parser.parse_args()
 
