@@ -61,8 +61,8 @@ def get_model(args):
 
 @torch.no_grad()
 def get_dp_noise(args) -> torch.Tensor:
-    noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
-                         size=(args.num_steps, args.num_client_agg, args.basis_gradients_history_size))
+    sz = (args.num_client_agg, args.basis_gradients_history_size)
+    noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip, size=sz)
     return noise
 
 
@@ -221,8 +221,6 @@ def train(args):
     best_model = copy.deepcopy(net)
     criteria = torch.nn.CrossEntropyLoss()
 
-    dp_noise: torch.Tensor = get_dp_noise(args).to(device)
-
     basis_gradients: Optional[torch.Tensor] = None
 
     train_loaders, val_loaders, test_loaders = get_dataloaders(args)
@@ -294,7 +292,8 @@ def train(args):
 
         grads_flattened = flatten_tensor(grads_list)
         embedded_grads = embed_grad(grads_flattened, pca).to(device)
-        noised_embedded_grads = embedded_grads + dp_noise[step, :, :embedded_grads.shape[-1]]
+        dp_noise: torch.Tensor = get_dp_noise(args, per_step=True).to(device)
+        noised_embedded_grads = embedded_grads + dp_noise[:, :embedded_grads.shape[-1]]
         aggregated_noised_embedded_grads = torch.sum(noised_embedded_grads, dim=0)
         reconstructed_grad = project_back_embedding(aggregated_noised_embedded_grads, pca, device)
         # average parameters
@@ -306,7 +305,7 @@ def train(args):
         # update new parameters of global net
         net.load_state_dict(params)
 
-        if step % args.eval_every == 0 or (step + 1) == args.num_steps:
+        if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -459,20 +458,20 @@ if __name__ == '__main__':
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default="cifar10",
+        "--data-name", type=str, default="cifar100",
         choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=30, help="total number of clients")
     parser.add_argument("--num-private-clients", type=int, default=25, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=5, help="number of public clients")
-    parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
+    parser.add_argument("--classes-per-client", type=int, default=20, help="number of simulated clients")
 
     #############################
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
     args = parser.parse_args()
 

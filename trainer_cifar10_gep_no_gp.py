@@ -313,7 +313,7 @@ def train(args):
         # update new parameters of global net
         net.load_state_dict(params)
 
-        if step % args.eval_every == 0 or (step + 1) == args.num_steps:
+        if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -428,7 +428,7 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
     args = parser.parse_args()
 
