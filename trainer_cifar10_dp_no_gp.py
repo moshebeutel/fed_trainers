@@ -61,8 +61,8 @@ def get_model(args):
 def get_dp_noise(args, net):
     noises = {}
     for n, p in net.named_parameters():
-        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
-                             size=(args.num_steps, args.num_client_agg, *p.shape))
+        sz = (args.num_client_agg, *p.shape)
+        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip, size=sz)
         noises[n] = noise
     return noises
 
@@ -149,9 +149,6 @@ def train(args):
     best_model = copy.deepcopy(net)
     criteria = torch.nn.CrossEntropyLoss()
 
-    dp_noise_dict = get_dp_noise(args, net)
-    dp_noise_dict = {n: noise.to(device) for n, noise in dp_noise_dict.items()}
-
     train_loaders, val_loaders, test_loaders = get_dataloaders(args)
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
@@ -211,8 +208,9 @@ def train(args):
                         f"best test acc: {best_acc:.2f}"
                     )
             # get client parameters and sum.
+            dp_noise_dict = get_dp_noise(args, net, per_step=True)
             for n, p in local_net.named_parameters():
-                params[n] += p.data + dp_noise_dict[n][step, j]
+                params[n] += (p.data + dp_noise_dict[n][j].to(device))
 
         # average parameters
         for n, p in params.items():
@@ -221,7 +219,7 @@ def train(args):
         # update new parameters of global net
         net.load_state_dict(params)
 
-        if step % args.eval_every == 0 or (step + 1) == args.num_steps:
+        if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -288,7 +286,7 @@ if __name__ == '__main__':
     ##################################
     #       Network args        #
     ##################################
-    parser.add_argument("--num-blocks", type=int, default=3)
+    parser.add_argument("--num-blocks", type=int, default=5)
     parser.add_argument("--block-size", type=int, default=3)
 
     ##################################
@@ -334,7 +332,7 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
     args = parser.parse_args()
 
