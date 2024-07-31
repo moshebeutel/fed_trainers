@@ -292,7 +292,7 @@ def train(args):
 
         grads_flattened = flatten_tensor(grads_list)
         embedded_grads = embed_grad(grads_flattened, pca).to(device)
-        dp_noise: torch.Tensor = get_dp_noise(args, per_step=True).to(device)
+        dp_noise: torch.Tensor = get_dp_noise(args).to(device)
         noised_embedded_grads = embedded_grads + dp_noise[:, :embedded_grads.shape[-1]]
         aggregated_noised_embedded_grads = torch.sum(noised_embedded_grads, dim=0)
         reconstructed_grad = project_back_embedding(aggregated_noised_embedded_grads, pca, device)

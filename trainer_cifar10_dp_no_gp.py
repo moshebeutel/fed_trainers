@@ -208,7 +208,7 @@ def train(args):
                         f"best test acc: {best_acc:.2f}"
                     )
             # get client parameters and sum.
-            dp_noise_dict = get_dp_noise(args, net, per_step=True)
+            dp_noise_dict = get_dp_noise(args, net)
             for n, p in local_net.named_parameters():
                 params[n] += (p.data + dp_noise_dict[n][j].to(device))
 

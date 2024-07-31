@@ -5,15 +5,17 @@ import os
 import re
 from collections import OrderedDict
 from pathlib import Path
+import random
 from typing import Dict, Optional
 import numpy as np
 import torch
 import wandb
 from sklearn import metrics
 from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
 from torch import Tensor
 from tqdm import trange
-from model import FeatureModel
+from model import FeatureModel, MLPTarget
 from utils import get_device, set_logger, set_seed, str2bool, initialize_weights
 
 
@@ -47,13 +49,13 @@ def get_dataloaders(args):
     import pandas as pd
     from biolab_utilities.putemg_utilities import prepare_data, Record, record_filter, data_per_id_and_date
 
-
     # filtered_data_folder = os.path.join(result_folder, 'filtered_data')
     # calculated_features_folder = os.path.join(result_folder, 'calculated_features')
-    calculated_features_folder = Path('/home/user/GIT/putemg-downloader/Data-HDF5-Features-Small')
+    calculated_features_folder = Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small'
 
     # list all hdf5 files in given input folder
-    all_files = [f.as_posix().replace('_filtered_features', '') for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
+    all_files = [f.as_posix().replace('_filtered_features', '') for f in
+                 sorted(calculated_features_folder.glob("*_features.hdf5"))]
 
     all_feature_records = [Record(os.path.basename(f)) for f in all_files]
 
@@ -75,8 +77,6 @@ def get_dataloaders(args):
         filename = os.path.splitext(r.path)[0]
         dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
                                                        filename + '_filtered_features.hdf5')))
-
-
 
     features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP']
     # defines gestures to be used in shallow learn
@@ -100,9 +100,12 @@ def get_dataloaders(args):
     num_classes = 8
     classes_per_client = 8
     num_clients = len(splits_all.values())
-    train_loaders, test_loaders = {}, {}
+    train_loaders, val_loaders, test_loaders = {}, {}, {}
+
     for client_id in range(num_clients):
         running_loss, running_correct, running_samples = 0., 0., 0.
+        train_x_s, test_x_s = [], []
+        train_y_s, test_y_s = [], []
 
         # iterate over each internal data
         for i_s, subject_data in enumerate(list(splits_all.values())[client_id]):
@@ -130,30 +133,47 @@ def get_dataloaders(args):
             test_y_true = torch.LongTensor(data["test"]["output_0"].to_numpy())
             test_y_true[test_y_true > 5] -= 2
 
-            train_loaders[client_id] = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(train_x, train_y),
-                shuffle=True,
-                batch_size=args.batch_size,
-                num_workers=args.num_workers
-            )
+            train_x_s.append(train_x)
+            test_x_s.append(test_x)
+            train_y_s.append(train_y)
+            test_y_s.append(test_y_true)
 
-            test_loaders[client_id] = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(test_x, test_y_true),
-                shuffle=False,
-                batch_size=args.batch_size,
-                num_workers=args.num_workers
-            )
+            # train_idx, val_idx = train_test_split(list(range(len(train_y))), test_size=val_split)
+            # train_set, val_set = torch.utils.data.random_split(dataset, [50000, 10000])
 
-    return train_loaders, test_loaders, test_loaders
+        # random.choices(list(range(len(train_y_s))),  k=4)
+        train_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(torch.cat(train_x_s[:-1]), torch.cat(train_y_s[:-1])),
+            shuffle=True,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
+
+        val_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(torch.cat(train_x_s[-1:]), torch.cat(train_y_s[-1:])),
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
+
+        test_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(test_x, test_y_true),
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
+
+    return train_loaders, val_loaders, test_loaders
+
 
 def get_model(args):
     num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8}[args.data_name]
     assert args.data_name == 'putEMG', 'data_name should be putEMG'
     assert num_classes == 8, 'num_classes should be 8'
-    model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
+    model = MLPTarget(num_features=24*8, num_classes=num_classes, use_softmax=True)
+    # model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
     initialize_weights(model)
     return model
-
 
 
 @torch.no_grad()
@@ -299,7 +319,6 @@ def eval_model(args, global_model, client_ids, loaders):
 
 
 def train(args):
-
     fields_list = ["num_blocks", "block_size", "optimizer", "lr",
                    "num_client_agg", "clip", "noise_multiplier", "basis_gradients_history_size"]
 
@@ -410,7 +429,7 @@ def train(args):
         # update new parameters of global net
         net.load_state_dict(params)
 
-        if step % args.eval_every == 0 or (step + 1) == args.num_steps:
+        if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -492,7 +511,7 @@ if __name__ == '__main__':
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=1.0, help="dp noise factor "
+    parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument("--basis-gradients-history-size", type=int,
                         default=100, help="amount of past gradients participating in embedding subspace computation")
@@ -512,7 +531,7 @@ if __name__ == '__main__':
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default="cifar10",
+        "--data-name", type=str, default="putEMG",
         choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
@@ -525,7 +544,7 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
     args = parser.parse_args()
 

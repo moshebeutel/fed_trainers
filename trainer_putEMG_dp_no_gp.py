@@ -48,6 +48,7 @@ def get_dataloaders(args):
     import pandas as pd
     from biolab_utilities.putemg_utilities import prepare_data, Record, record_filter, data_per_id_and_date
 
+
     # filtered_data_folder = os.path.join(result_folder, 'filtered_data')
     # calculated_features_folder = os.path.join(result_folder, 'calculated_features')
     calculated_features_folder = Path(args.data_path)
@@ -57,19 +58,7 @@ def get_dataloaders(args):
 
 
     # list all hdf5 files in given input folder
-    all_files = [f.as_posix().replace('_filtered_features', '') for f in
-                 sorted(calculated_features_folder.glob("*_features.hdf5"))]
-    users_files=[]
-    for u in USERS:
-        for f in all_files:
-            if f'gestures-{u}' in f:
-                users_files.append(f)
-
-
-
-    all_files = users_files
-
-    logging.info(f'Found {len(all_files)} feature files')
+    all_files = [f.as_posix().replace('_filtered_features', '') for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
 
     all_feature_records = [Record(os.path.basename(f)) for f in all_files]
 
@@ -79,6 +68,7 @@ def get_dataloaders(args):
 
     # load feature data to memory
     dfs: Dict[Record, pd.DataFrame] = {}
+
     for r in records_filtered_by_subject:
         # print("Reading features for input file: ", r)
         filename = os.path.splitext(r.path)[0]
@@ -164,14 +154,15 @@ def get_dataloaders(args):
             num_workers=args.num_workers
         )
 
-    return train_loaders, test_loaders, test_loaders
+    return train_loaders, val_loaders, test_loaders
 
 
 def get_model(args):
     num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8}[args.data_name]
     assert args.data_name == 'putEMG', 'data_name should be putEMG'
     assert num_classes == 8, 'num_classes should be 8'
-    model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
+    model = MLPTarget(num_features=24*8, num_classes=num_classes, use_softmax=True)
+    # model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
     initialize_weights(model)
     return model
 
@@ -253,6 +244,7 @@ def eval_model(args, global_model, client_ids, loaders):
 
 
 def train(args):
+
     fields_list = ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip", "noise_multiplier"]
     args_list = [(k, vars(args)[k]) for k in fields_list]
 
@@ -341,7 +333,7 @@ def train(args):
         # update new parameters of global net
         net.load_state_dict(params)
 
-        if step % args.eval_every == 0 or (step + 1) == args.num_steps:
+        if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -454,7 +446,7 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
 
     args = parser.parse_args()
 

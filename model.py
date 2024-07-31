@@ -95,7 +95,6 @@ class FeatureModel(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         self.fc = nn.Linear(8 * num_channels, num_channels)
 
-
         # self._dense_block1 = DenseBlock(num_features, 2 * num_features)
         # use_batchnorm=use_group_norm, use_dropout=use_dropout)
 
@@ -227,3 +226,28 @@ class ResNet(nn.Module):
         self._output_debug_fn(f'output {x.shape}')
 
         return x
+
+
+class MLPTarget(nn.Module):
+    def __init__(self, num_features=192, num_classes=100, use_softmax=True):
+        super(MLPTarget, self).__init__()
+
+        self.fc1 = nn.Linear(num_features, 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 128)
+        self.fc4 = nn.Linear(128, num_classes)
+        self._use_softmax = use_softmax
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
+        x = F.log_softmax(x, dim=1) if self._use_softmax else x
+        return x
+
+
+if __name__ == '__main__':
+    model = MLPTarget()
+    num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
+    print(num_params)
