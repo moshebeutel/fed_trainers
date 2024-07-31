@@ -15,6 +15,8 @@ from tqdm import trange
 from model import FeatureModel
 from utils import get_device, set_logger, set_seed, str2bool, initialize_weights
 
+USERS = ['03', '04', '06', '09', '11', '12', '13', '15', '16', '19', '22', '27', '31', '36', '38', '45']
+
 
 def get_clients(args):
     num_clients = args.num_clients
@@ -46,13 +48,28 @@ def get_dataloaders(args):
     import pandas as pd
     from biolab_utilities.putemg_utilities import prepare_data, Record, record_filter, data_per_id_and_date
 
-
     # filtered_data_folder = os.path.join(result_folder, 'filtered_data')
     # calculated_features_folder = os.path.join(result_folder, 'calculated_features')
-    calculated_features_folder = Path('/home/user/GIT/putemg-downloader/Data-HDF5-Features-Small')
+    calculated_features_folder = Path(args.data_path)
+    assert calculated_features_folder.exists(), f'{calculated_features_folder} does not exist'
+    assert calculated_features_folder.is_dir(), f'{calculated_features_folder} is not a directory'
+    assert len(list(calculated_features_folder.glob('*.hdf5'))) > 0, f'{calculated_features_folder} does not contain hdf5 files'
+
 
     # list all hdf5 files in given input folder
-    all_files = [f.as_posix().replace('_filtered_features', '') for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
+    all_files = [f.as_posix().replace('_filtered_features', '') for f in
+                 sorted(calculated_features_folder.glob("*_features.hdf5"))]
+    users_files=[]
+    for u in USERS:
+        for f in all_files:
+            if f'gestures-{u}' in f:
+                users_files.append(f)
+
+
+
+    all_files = users_files
+
+    logging.info(f'Found {len(all_files)} feature files')
 
     all_feature_records = [Record(os.path.basename(f)) for f in all_files]
 
@@ -60,22 +77,13 @@ def get_dataloaders(args):
 
     splits_all = data_per_id_and_date(records_filtered_by_subject, n_splits=3)
 
-    # data can be additionally filtered based on subject id
-
-    # records_filtered_by_subject = record_filter(all_feature_records,
-    #                                             whitelists={"id": ["01", "02", "03", "04", "07"]})
-    # records_filtered_by_subject = pu.record_filter(all_feature_records, whitelists={"id": ["01"]})
-
     # load feature data to memory
     dfs: Dict[Record, pd.DataFrame] = {}
-
     for r in records_filtered_by_subject:
         # print("Reading features for input file: ", r)
         filename = os.path.splitext(r.path)[0]
         dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
                                                        filename + '_filtered_features.hdf5')))
-
-
 
     features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP']
     # defines gestures to be used in shallow learn
@@ -96,13 +104,14 @@ def get_dataloaders(args):
         # "8chn_3band": {"begin": 17, "end": 24}
     }
     ch_range = channel_range['24chn']
-    num_classes = 8
-    classes_per_client = 8
+    num_classes = len(gestures)
+    classes_per_client = num_classes
     num_clients = len(splits_all.values())
-    train_loaders, test_loaders = {}, {}
+    train_loaders, val_loaders, test_loaders = {}, {}, {}
     for client_id in range(num_clients):
         running_loss, running_correct, running_samples = 0., 0., 0.
-
+        train_x_s, test_x_s = [], []
+        train_y_s, test_y_s = [], []
         # iterate over each internal data
         for i_s, subject_data in enumerate(list(splits_all.values())[client_id]):
             is_first_iter = True
@@ -129,19 +138,31 @@ def get_dataloaders(args):
             test_y_true = torch.LongTensor(data["test"]["output_0"].to_numpy())
             test_y_true[test_y_true > 5] -= 2
 
-            train_loaders[client_id] = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(train_x, train_y),
-                shuffle=True,
-                batch_size=args.batch_size,
-                num_workers=args.num_workers
-            )
+            train_x_s.append(train_x)
+            test_x_s.append(test_x)
+            train_y_s.append(train_y)
+            test_y_s.append(test_y_true)
 
-            test_loaders[client_id] = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(test_x, test_y_true),
-                shuffle=False,
-                batch_size=args.batch_size,
-                num_workers=args.num_workers
-            )
+        train_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(torch.cat(train_x_s[:-1]), torch.cat(train_y_s[:-1])),
+            shuffle=True,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
+
+        val_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(torch.cat(train_x_s[-1:]), torch.cat(train_y_s[-1:])),
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
+
+        test_loaders[client_id] = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(test_x, test_y_true),
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
+        )
 
     return train_loaders, test_loaders, test_loaders
 
@@ -232,7 +253,6 @@ def eval_model(args, global_model, client_ids, loaders):
 
 
 def train(args):
-
     fields_list = ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip", "noise_multiplier"]
     args_list = [(k, vars(args)[k]) for k in fields_list]
 
@@ -333,7 +353,7 @@ def train(args):
                 best_acc_score = val_avg_acc_score
                 best_f1 = val_avg_f1
                 best_epoch = step
-                best_model = best_model.cpu()
+                best_model.cpu()
                 del best_model
                 best_model = copy.deepcopy(net)
 
@@ -384,7 +404,7 @@ def train(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Personalized Federated Learning")
-
+    num_users = len(USERS)
     ##################################
     #       Network args        #
     ##################################
@@ -424,9 +444,9 @@ if __name__ == '__main__':
         "--data-name", type=str, default="putEMG",
         choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
     )
-    parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=23, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=23, help="number of private clients")
+    parser.add_argument("--data-path", type=str, default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(), help="dir path for dataset")
+    parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=num_users, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
 
@@ -434,7 +454,7 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
     args = parser.parse_args()
 
