@@ -2,17 +2,17 @@ import argparse
 import copy
 import logging
 from collections import OrderedDict
-from typing import Dict, Optional
+from typing import Optional
 import numpy as np
 import torch
 import wandb
-from sklearn import metrics
 from sklearn.decomposition import PCA
 from torch import Tensor
 from tqdm import trange
 from dataset import gen_random_loaders
 from model import ResNet
-from utils import get_device, set_logger, set_seed, str2bool, initialize_weights
+from utils import get_device, set_logger, set_seed, str2bool, initialize_weights, local_train, eval_model, \
+    flatten_tensor
 
 
 def get_clients(args):
@@ -36,11 +36,6 @@ def get_clients(args):
     return public_clients, private_clients, dummy_clients
 
 
-def get_optimizer(args, network):
-    return torch.optim.SGD(network.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9) \
-        if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
-
-
 def get_dataloaders(args):
     train_loaders, val_loaders, test_loaders = gen_random_loaders(
         args.data_name,
@@ -59,26 +54,7 @@ def get_model(args):
     return model
 
 
-@torch.no_grad()
-def get_dp_noise(args) -> torch.Tensor:
-    sz = (args.num_client_agg, args.basis_gradients_history_size)
-    noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip, size=sz)
-    return noise
-
-
 # GEP
-
-def flatten_tensor(tensor_list) -> torch.Tensor:
-    """
-    Taken from https://github.com/dayu11/Gradient-Embedding-Perturbation
-    """
-    for i in range(len(tensor_list)):
-        tensor_list[i] = tensor_list[i].reshape([tensor_list[i].shape[0], -1])
-        # tensor_list[i] = tensor_list[i].reshape(1, -1)
-    flatten_param = torch.cat(tensor_list, dim=1)
-    del tensor_list
-    return flatten_param
-
 
 @torch.no_grad()
 def check_approx_error(L, target) -> float:
@@ -121,7 +97,7 @@ def embed_grad(grad: torch.Tensor, pca: PCA) -> torch.Tensor:
 
 def project_back_embedding(embedding: torch.Tensor, pca: PCA, device: torch.device) -> torch.Tensor:
     embedding_np: np.ndarray = embedding.cpu().detach().numpy()
-    grad_np: np.ndarray = pca.inverse_transform(embedding_np)
+    grad_np: np.ndarray = np.apply_along_axis(pca.inverse_transform, -1, embedding_np)
     return torch.from_numpy(grad_np).to(device)
 
 
@@ -136,79 +112,14 @@ def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: O
     return basis_gradients
 
 
-@torch.no_grad()
-def eval_model(args, global_model, client_ids, loaders):
-    device = get_device()
-    # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
-
-    loss_dict: Dict[str, float] = {}
-    acc_dict: Dict[str, float] = {}
-    acc_score_dict: Dict[str, float] = {}
-    f1s_dict: Dict[str, float] = {}
-    criteria = torch.nn.CrossEntropyLoss()
-
-    y_true_all, y_pred_all, loss_all = None, None, 0.
-
-    global_model.eval()
-    num_clients = len(client_ids)
-
-    for i, client_id in enumerate(client_ids):
-        running_loss, running_correct, running_samples = 0., 0., 0.
-
-        test_loader = loaders[client_id]
-
-        all_targets = []
-        all_preds = []
-
-        for batch_count, batch in enumerate(test_loader):
-            X_test, Y_test = tuple(t.to(device) for t in batch)
-            pred = global_model(X_test)
-
-            loss = criteria(pred, Y_test)
-            predicted = torch.max(pred, dim=1)[1].cpu().numpy()
-
-            running_loss += (loss.item() * Y_test.size(0))
-            running_correct += pred.argmax(1).eq(Y_test).sum().item()
-            running_samples += Y_test.size(0)
-
-            target = Y_test.cpu().numpy().reshape(predicted.shape)
-
-            all_targets += target.tolist()
-            all_preds += predicted.tolist()
-
-        # calculate confusion matrix
-        y_true = np.array(all_targets)
-        y_pred = np.array(all_preds)
-        running_loss /= running_samples
-
-        y_true_all = y_true if y_true_all is None else np.concatenate((y_true_all, y_true), axis=0)
-        y_pred_all = y_pred if y_pred_all is None else np.concatenate((y_pred_all, y_pred), axis=0)
-        loss_all += (running_loss / num_clients)
-
-        eval_accuracy = (y_true == y_pred).sum().item() / running_samples
-        acc_score = metrics.accuracy_score(y_true, y_pred)
-        f1 = metrics.f1_score(y_true, y_pred, average='micro')
-
-        acc_dict[f"P{client_id}"] = eval_accuracy
-        loss_dict[f"P{client_id}"] = running_loss
-        acc_score_dict[f"P{client_id}"] = acc_score
-        f1s_dict[f"P{client_id}"] = f1
-
-    avg_acc = (y_true_all == y_pred_all).mean().item()
-    avg_loss = loss_all
-    avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
-    avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
-
-    return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
-
-
 def train(args):
+    logger = logging.getLogger(args.log_name)
     fields_list = ["num_blocks", "block_size", "optimizer", "lr",
                    "num_client_agg", "clip", "noise_multiplier", "basis_gradients_history_size"]
 
     args_list = [(k, vars(args)[k]) for k in fields_list]
 
-    logging.info(f' *** Training for args {args_list} ***')
+    logger.info(f' *** Training for args {args_list} ***')
 
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1 = 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
@@ -219,7 +130,6 @@ def train(args):
     net = get_model(args)
     net = net.to(device)
     best_model = copy.deepcopy(net)
-    criteria = torch.nn.CrossEntropyLoss()
 
     basis_gradients: Optional[torch.Tensor] = None
 
@@ -227,7 +137,9 @@ def train(args):
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
     step_iter = trange(args.num_steps)
-
+    pbar_dict = {'Step': '0', 'Client': '0', 'Public_Private?': 'Public_',
+                 'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
+                 'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
     for step in step_iter:
 
         # initialize global model params
@@ -251,14 +163,15 @@ def train(args):
 
             train_loader = train_loaders[c_id]
 
-            description_pref = f"Step: {step + 1:2d}, Public client: {c_id:2d} ({j + 1} in public clients),"
-
-            local_net, train_avg_loss = local_train(args, net, train_loader, train_avg_loss, step_iter,
-                                                    description_pref)
+            pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3), 'Client': f'{c_id}'.zfill(3),
+                              'Public_Private?': 'Public_',
+                              'Client Number in Step': f'{(j + 1)}'.zfill(3),
+                              'Train Avg Loss': f'{train_avg_loss:.4f}'})
+            local_net, train_avg_loss = local_train(args, net, train_loader,
+                                                    pbar=step_iter, pbar_dict=pbar_dict)
 
             # get client grads and sum.
             for n, p in local_net.named_parameters():
-                # public_params[n] += p.data
                 public_grads[n].append(p.data.detach() - prev_params[n])
 
         public_grads_list = [torch.stack(public_grads[n]) for n, p in net.named_parameters()]
@@ -275,31 +188,49 @@ def train(args):
 
             train_loader = train_loaders[c_id]
 
-            description_pref = f"Step: {step + 1:2d}, client: {c_id:2d} ({j + 1} in step),"
-            description_suff = (f"best epoch: {best_epoch + 1: 2d},"
-                                f" test avg acc: {val_avg_acc:.4f}, "
-                                f"best test acc: {best_acc:.2f}")
+            pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3), 'Client': f'{c_id}'.zfill(3),
+                              'Public_Private?': 'Private',
+                              'Client Number in Step': f'{(j + 1)}'.zfill(3),
+                              'Train Avg Loss': f'{train_avg_loss:.4f}',
+                              'Train Current Loss': f'{0.:.4f}',
+                              'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
+                              'Val Avg Acc': f'{val_avg_acc:.4f}',
+                              'Best Avg Acc': f'{best_acc:.4f}'})
 
-            local_net, train_avg_loss = local_train(args, net, train_loader, train_avg_loss, step_iter,
-                                                    description_pref, description_suff)
+            local_net, train_avg_loss = local_train(args, net, train_loader,
+                                                    pbar=step_iter, pbar_dict=pbar_dict)
 
             # get client grads and sum.
             for n, p in local_net.named_parameters():
-                params[n] += p.data
                 grads[n].append(p.data.detach() - prev_params[n])
 
+        # stack sampled clients grads
         grads_list = [torch.stack(grads[n]) for n, p in net.named_parameters()]
 
+        # flatten grads for clipping and noising
         grads_flattened = flatten_tensor(grads_list)
+
+        # project grads to subspace computed by public grads
         embedded_grads = embed_grad(grads_flattened, pca).to(device)
-        dp_noise: torch.Tensor = get_dp_noise(args).to(device)
-        noised_embedded_grads = embedded_grads + dp_noise[:, :embedded_grads.shape[-1]]
-        aggregated_noised_embedded_grads = torch.sum(noised_embedded_grads, dim=0)
-        reconstructed_grad = project_back_embedding(aggregated_noised_embedded_grads, pca, device)
-        # average parameters
+
+        # clip grads in embedding  subspace
+        embedded_grads_norms = torch.norm(embedded_grads, p=2, dim=-1)
+        clip_factor = torch.max(torch.ones_like(embedded_grads_norms), embedded_grads_norms / args.clip)
+        embedded_grads_clipped = torch.div(embedded_grads, clip_factor.reshape(-1, 1))
+
+        # noise grads in embedding subspace
+        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip, size=embedded_grads_clipped.shape).to(
+            device)
+        noised_embedded_grads = embedded_grads_clipped + noise
+
+        # aggregate sampled clients embedded grads and project back to gradient space
+        reconstructed_grads = project_back_embedding(noised_embedded_grads, pca, device)
+        aggregated_grads = torch.mean(reconstructed_grads, dim=0)
+
+        # update old parameters using private aggregated grads
         offset = 0
-        for n, p in params.items():
-            params[n] = (p + reconstructed_grad[offset: offset + p.numel()].reshape(p.shape)) / args.num_client_agg
+        for n, p in prev_params.items():
+            params[n] = p + aggregated_grads[offset: offset + p.numel()].reshape(p.shape)
             offset += p.numel()
 
         # update new parameters of global net
@@ -345,8 +276,8 @@ def train(args):
 
             wandb.log(log_dict)
 
-        logging.debug(
-            f"epoch {step}, "
+        logger.debug(
+            f"Step {step}, "
             f"train loss {train_avg_loss:.3f}, "
             f"best epoch: {best_epoch}, "
             f"best test loss: {best_loss:.3f}, "
@@ -360,9 +291,7 @@ def train(args):
 
     _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
 
-    logging.info(f'### Test Results For Args {args_list}:'
-                 f' test acc {test_avg_acc:.4f},'
-                 f' test loss {test_avg_loss:.4f} ###')
+    logger.info(f'## Test Results For Args {args_list}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
 
 def update_subspace(args, basis_gradients, grads_flattened):
@@ -370,46 +299,6 @@ def update_subspace(args, basis_gradients, grads_flattened):
                                                    args.basis_gradients_history_size)
     pca = compute_subspace(basis_gradients, args.basis_gradients_history_size)
     return pca
-
-
-def local_train(args, net, train_loader, train_avg_loss, step_iter, desc_pref='', desc_suff=''):
-    local_net = copy.deepcopy(net)
-    local_net.train()
-    optimizer = get_optimizer(args, local_net)
-    criteria = torch.nn.CrossEntropyLoss()
-    device = get_device()
-    for i in range(args.inner_steps):
-        for k, batch in enumerate(train_loader):
-            # batch = next(iter(train_loader))
-            x, Y = tuple(t.to(device) for t in batch)
-
-            optimizer.zero_grad()
-
-            # forward prop
-            pred = local_net(x)
-            loss = criteria(pred, Y)
-
-            # back prop
-            loss.backward()
-            # clip gradients
-            torch.nn.utils.clip_grad_norm_(local_net.parameters(), args.clip)
-            # update local parameters
-            optimizer.step()
-
-            # aggregate losses
-            train_avg_loss += (loss.item() / Y.shape[0])
-
-            step_iter.set_description(
-                f"{desc_pref}"
-                f"Inner Step: {i + 1:2d},"
-                f"batch: {k + 1:2d},"
-                f"Loss: {loss.item() : 5.2f},"
-                f"train loss {train_avg_loss: 5.2f},"
-                f"{desc_suff}"
-            )
-        # end of for k, batch in enumerate(train_loader):
-    # end of for i in range(args.inner_steps):
-    return local_net, train_avg_loss
 
 
 if __name__ == '__main__':
@@ -473,11 +362,15 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
+    parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
+    parser.add_argument("--log-name", type=str, default="gep_public", help="dir path for logger file")
+
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
-    set_logger()
+    logger = set_logger(args)
+    logger.info(f"Args: {args}")
     set_seed(args.seed)
 
     exp_name = f'FedAvg_between-days_seed_{args.seed}_wd_{args.wd}_' \

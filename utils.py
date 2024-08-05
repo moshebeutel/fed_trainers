@@ -1,15 +1,19 @@
+import copy
 import random
 import logging
 import argparse
+import time
 from contextlib import contextmanager
 import os
 import json
 from pathlib import Path
 import sys
 import warnings
+from typing import Dict
 
 import numpy as np
 import torch
+from sklearn import metrics
 from torch import nn
 
 
@@ -54,11 +58,22 @@ def set_seed(seed, cudnn_enabled=True):
     torch.backends.cudnn.deterministic = True
 
 
-def set_logger():
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
+def set_logger(args):
+    logger = logging.getLogger(args.log_name)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    log_dir = Path(args.log_dir)
+    log_dir.mkdir(exist_ok=True)
+    file_handler = logging.FileHandler(log_dir / f'{args.log_name}_{time.asctime()}.log')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    return logger
 
 
 def get_device(cuda=True, gpus='0'):
@@ -319,3 +334,123 @@ def calc_metrics(results):
     avg_loss = np.mean([val['loss'] for val in results.values()])
     avg_acc = total_correct / total_samples
     return avg_loss, avg_acc
+
+
+def local_train(args, net, train_loader, pbar, pbar_dict: Dict):
+    local_net = copy.deepcopy(net)
+    local_net.train()
+    optimizer = get_optimizer(args, local_net)
+    criteria = torch.nn.CrossEntropyLoss()
+    device = get_device()
+    train_avg_loss = 0.0
+    for i in range(args.inner_steps):
+        for k, batch in enumerate(train_loader):
+            x, Y = tuple(t.to(device) for t in batch)
+
+            optimizer.zero_grad()
+
+            # forward prop
+            pred = local_net(x)
+            loss = criteria(pred, Y)
+
+            # back prop
+            loss.backward()
+            # # clip gradients
+            # torch.nn.utils.clip_grad_norm_(local_net.parameters(), args.clip)
+            # update local parameters
+            optimizer.step()
+
+            # aggregate losses
+            train_avg_loss += (loss.item() / Y.shape[0])
+
+            pbar_dict.update({"Inner Step": f'{(i + 1)}'.zfill(3),
+                              "Batch": f'{(k + 1)}'.zfill(3),
+                              "Train Current Loss": f'{loss.item():5.2f}'})
+            pbar.set_postfix(pbar_dict)
+
+        # end of for k, batch in enumerate(train_loader):
+    # end of for i in range(args.inner_steps):
+    return local_net, train_avg_loss
+
+
+def get_optimizer(args, network):
+    return torch.optim.SGD(network.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9) \
+        if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
+
+
+@torch.no_grad()
+def eval_model(args, global_model, client_ids, loaders):
+    device = get_device()
+    # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
+
+    loss_dict: Dict[str, float] = {}
+    acc_dict: Dict[str, float] = {}
+    acc_score_dict: Dict[str, float] = {}
+    f1s_dict: Dict[str, float] = {}
+    criteria = torch.nn.CrossEntropyLoss()
+
+    y_true_all, y_pred_all, loss_all = None, None, 0.
+
+    global_model.eval()
+    num_clients = len(client_ids)
+
+    for i, client_id in enumerate(client_ids):
+        running_loss, running_correct, running_samples = 0., 0., 0.
+
+        test_loader = loaders[client_id]
+
+        all_targets = []
+        all_preds = []
+
+        for batch_count, batch in enumerate(test_loader):
+            X_test, Y_test = tuple(t.to(device) for t in batch)
+            pred = global_model(X_test)
+
+            loss = criteria(pred, Y_test)
+            predicted = torch.max(pred, dim=1)[1].cpu().numpy()
+
+            running_loss += (loss.item() * Y_test.size(0))
+            running_correct += pred.argmax(1).eq(Y_test).sum().item()
+            running_samples += Y_test.size(0)
+
+            target = Y_test.cpu().numpy().reshape(predicted.shape)
+
+            all_targets += target.tolist()
+            all_preds += predicted.tolist()
+
+        # calculate confusion matrix
+        y_true = np.array(all_targets)
+        y_pred = np.array(all_preds)
+        running_loss /= running_samples
+
+        y_true_all = y_true if y_true_all is None else np.concatenate((y_true_all, y_true), axis=0)
+        y_pred_all = y_pred if y_pred_all is None else np.concatenate((y_pred_all, y_pred), axis=0)
+        loss_all += (running_loss / num_clients)
+
+        eval_accuracy = (y_true == y_pred).sum().item() / running_samples
+        acc_score = metrics.accuracy_score(y_true, y_pred)
+        f1 = metrics.f1_score(y_true, y_pred, average='micro')
+
+        acc_dict[f"P{client_id}"] = eval_accuracy
+        loss_dict[f"P{client_id}"] = running_loss
+        acc_score_dict[f"P{client_id}"] = acc_score
+        f1s_dict[f"P{client_id}"] = f1
+
+    avg_acc = (y_true_all == y_pred_all).mean().item()
+    avg_loss = loss_all
+    avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
+    avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
+
+    return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+
+
+def flatten_tensor(tensor_list) -> torch.Tensor:
+    """
+    Taken from https://github.com/dayu11/Gradient-Embedding-Perturbation
+    """
+    for i in range(len(tensor_list)):
+        tensor_list[i] = tensor_list[i].reshape([tensor_list[i].shape[0], -1])
+        # tensor_list[i] = tensor_list[i].reshape(1, -1)
+    flatten_param = torch.cat(tensor_list, dim=1)
+    del tensor_list
+    return flatten_param

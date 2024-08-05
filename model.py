@@ -243,7 +243,7 @@ class MLPTarget(nn.Module):
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
-        x = F.log_softmax(x, dim=1) if self._use_softmax else x
+        x = F.softmax(x, dim=1) if self._use_softmax else x
         return x
 
 
