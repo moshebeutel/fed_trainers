@@ -5,10 +5,6 @@ from pathlib import Path
 from typing import Dict
 import torch
 
-from model import MLPTarget
-from utils import initialize_weights
-
-
 def get_user_list():
     return ['03', '04', '06', '09', '11', '12', '13', '15', '16', '19', '22', '27', '31', '36', '38', '45']
 
@@ -138,36 +134,6 @@ def get_dataloaders(args):
 
     return train_loaders, val_loaders, test_loaders
 
-
-def get_model(args):
-    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8}[args.data_name]
-    assert args.data_name == 'putEMG', 'data_name should be putEMG'
-    assert num_classes == 8, 'num_classes should be 8'
-    model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
-    # model = FeatureModel(num_channels=24, num_features=8, number_of_classes=num_classes)
-    initialize_weights(model)
-    return model
-
-
-def get_clients(args):
-    num_clients = args.num_clients
-    num_private_clients = args.num_private_clients
-    num_public_clients = args.num_public_clients
-
-    assert num_clients >= (num_private_clients + num_public_clients), \
-        f'num clients should be more than sum of all participating clients. Got {num_clients} clients'
-
-    num_dummy_clients = num_clients - (num_private_clients + num_public_clients)
-
-    i = 0
-    public_clients = list(range(i, i + num_public_clients))
-    i += num_public_clients
-    private_clients = list(range(i, i + num_private_clients))
-    i += num_private_clients
-    dummy_clients = list(range(i, i + num_dummy_clients))
-    i += num_dummy_clients
-
-    return public_clients, private_clients, dummy_clients
 
 
 def get_optimizer(args, network):

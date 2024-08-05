@@ -1,41 +1,18 @@
-import copy
-import random
-import logging
 import argparse
-import time
-from contextlib import contextmanager
-import os
+import copy
 import json
-from pathlib import Path
+import logging
+import os
+import random
 import sys
+import time
 import warnings
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Dict
-
 import numpy as np
 import torch
 from sklearn import metrics
-from torch import nn
-
-
-def get_n_params(model: nn.Module):
-    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    number_params = sum([np.prod(p.size()) for p in model_parameters])
-    return number_params
-
-
-def initialize_weights(module: nn.Module):
-    for m in module.modules():
-
-        if isinstance(m, nn.Conv3d):
-            nn.init.kaiming_normal_(m.weight)
-            m.bias.data.zero_()
-        elif isinstance(m, nn.Conv2d):
-            nn.init.kaiming_normal_(m.weight)
-            if m.bias is not None:
-                m.bias.data.zero_()
-        elif isinstance(m, nn.Linear):
-            nn.init.kaiming_normal_(m.weight)
-            m.bias.data.zero_()
 
 
 def set_seed(seed, cudnn_enabled=True):
@@ -454,3 +431,26 @@ def flatten_tensor(tensor_list) -> torch.Tensor:
     flatten_param = torch.cat(tensor_list, dim=1)
     del tensor_list
     return flatten_param
+
+
+def get_clients(args):
+    num_clients = args.num_clients
+    num_private_clients = args.num_private_clients
+    num_public_clients = args.num_public_clients
+
+    assert num_clients >= (num_private_clients + num_public_clients), \
+        f'num clients should be more than sum of all participating clients. Got {num_clients} clients'
+
+    num_dummy_clients = num_clients - (num_private_clients + num_public_clients)
+
+    i = 0
+    public_clients = list(range(i, i + num_public_clients))
+    i += num_public_clients
+    private_clients = list(range(i, i + num_private_clients))
+    i += num_private_clients
+    dummy_clients = list(range(i, i + num_dummy_clients))
+    i += num_dummy_clients
+
+    return public_clients, private_clients, dummy_clients
+
+

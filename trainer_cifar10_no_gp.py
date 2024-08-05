@@ -2,36 +2,19 @@ import argparse
 import copy
 import logging
 from collections import OrderedDict
+from pathlib import Path
 from typing import Dict
 import numpy as np
 import torch
 import wandb
 from sklearn import metrics
 from tqdm import trange
+
+import trainer_sgd_dp_no_gp
+import utils
 from dataset import gen_random_loaders
 from model import ResNet
-from utils import get_device, set_logger, set_seed, str2bool, initialize_weights
-
-
-def get_clients(args):
-    num_clients = args.num_clients
-    num_private_clients = args.num_private_clients
-    num_public_clients = args.num_public_clients
-
-    assert num_clients >= (num_private_clients + num_public_clients), \
-        f'num clients should be more than sum of all participating clients. Got {num_clients} clients'
-
-    num_dummy_clients = num_clients - (num_private_clients + num_public_clients)
-
-    i = 0
-    public_clients = list(range(i, i + num_public_clients))
-    i += num_public_clients
-    private_clients = list(range(i, i + num_private_clients))
-    i += num_private_clients
-    dummy_clients = list(range(i, i + num_dummy_clients))
-    i += num_dummy_clients
-
-    return public_clients, private_clients, dummy_clients
+from utils import get_device, set_logger, set_seed, str2bool, initialize_weights, get_clients, get_model
 
 
 def get_optimizer(args, network):
@@ -48,13 +31,6 @@ def get_dataloaders(args):
         args.classes_per_client)
 
     return train_loaders, val_loaders, test_loaders
-
-
-def get_model(args):
-    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8}[args.data_name]
-    model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes)
-    initialize_weights(model)
-    return model
 
 
 @torch.no_grad()
@@ -159,7 +135,7 @@ def train(args):
         for j, c_id in enumerate(client_ids_step):
 
             local_net = copy.deepcopy(net)
-            local_net.train()
+            trainer_sgd_dp_no_gp.train()
             optimizer = get_optimizer(args, local_net)
 
             train_loader = train_loaders[c_id]
@@ -297,7 +273,8 @@ if __name__ == '__main__':
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
     parser.add_argument("--exp-name", type=str, default='', help="suffix for exp name")
-    parser.add_argument("--save-path", type=str, default="./output/pFedGP", help="dir path for output file")
+    parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
+                        help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
 
