@@ -59,7 +59,7 @@ if __name__ == '__main__':
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default="cifar10",
+        "--data-name", type=str, default="putEMG",
         choices=['cifar10', 'cifar100', 'putEMG'], help="dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
@@ -76,6 +76,9 @@ if __name__ == '__main__':
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
+    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default="cifar_sgd_do.csv", help="dir path for csv file")
+
 
     args = parser.parse_args()
 

@@ -11,7 +11,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict
 import numpy as np
+import pandas as pd
 import torch
+import wandb
 from sklearn import metrics
 
 
@@ -454,3 +456,70 @@ def get_clients(args):
     return public_clients, private_clients, dummy_clients
 
 
+def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc):
+    csv_path = Path(args.csv_path)
+    csv_path.mkdir(exist_ok=True)
+    csv_file_path = csv_path / args.csv_name
+
+    new_row_dict = {
+        'data_name': args.data_name,
+        'num-steps': args.num_steps,
+        'optimizer': args.optimizer,
+        'lr': args.lr,
+        'num-client-agg': args.num_client_agg,
+        'clip': args.clip,
+        'noise-multiplier': args.noise_multiplier,
+        'seed': args.seed,
+        'dp_method': dp_method,
+        'epoch_of_best_val': epoch_of_best_val,
+        'best_val_acc': best_val_acc,
+        'test_avg_acc': test_avg_acc
+    }
+
+    new_row = pd.Series(new_row_dict)
+    if csv_file_path.exists():
+        df = pd.read_csv(csv_file_path)
+        df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
+    else:
+        df = pd.DataFrame(new_row.to_frame().T)
+
+    df.to_csv(csv_file_path)
+
+
+def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss, val_acc_dict,
+              val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
+              val_loss_dict):
+    log_dict = {}
+    log_dict.update(
+        {
+            'custom_step': step,
+            'train_loss': train_avg_loss,
+            'test_avg_loss': val_avg_loss,
+            'test_avg_acc': val_avg_acc,
+            'test_avg_acc_score': val_avg_acc_score,
+            'test_avg_f1': val_avg_f1,
+            'test_best_loss': best_loss,
+            'test_best_acc': best_acc,
+            'test_best_acc_score': best_acc_score,
+            'test_best_f1': best_f1,
+            'test_best_epoch': best_epoch
+        }
+    )
+    log_dict.update({f"test_acc_{l}": m for (l, m) in val_acc_dict.items()})
+    log_dict.update({f"test_loss_{l}": m for (l, m) in val_loss_dict.items()})
+    log_dict.update({f"test_acc_score_{l}": m for (l, m) in val_acc_score_dict.items()})
+    log_dict.update({f"test_f1_{l}": m for (l, m) in val_f1s_dict.items()})
+    wandb.log(log_dict)
+
+
+@torch.no_grad()
+def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params):
+    # update old parameters using private aggregated grads
+    params = {}
+    offset = 0
+    for n, p in prev_params.items():
+        params[n] = p + aggregated_grads[offset: offset + p.numel()].reshape(p.shape)
+        offset += p.numel()
+    # update new parameters of global net
+    net.load_state_dict(params)
+    return net

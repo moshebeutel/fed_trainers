@@ -5,23 +5,22 @@ from pathlib import Path
 from typing import Dict
 import torch
 
+
 def get_user_list():
     return ['03', '04', '06', '09', '11', '12', '13', '15', '16', '19', '22', '27', '31', '36', '38', '45']
-
 
 
 def get_dataloaders(args):
     import pandas as pd
     from biolab_utilities.putemg_utilities import prepare_data, Record, record_filter, data_per_id_and_date
 
-
     # filtered_data_folder = os.path.join(result_folder, 'filtered_data')
     # calculated_features_folder = os.path.join(result_folder, 'calculated_features')
     calculated_features_folder = Path(args.data_path)
     assert calculated_features_folder.exists(), f'{calculated_features_folder} does not exist'
     assert calculated_features_folder.is_dir(), f'{calculated_features_folder} is not a directory'
-    assert len(list(calculated_features_folder.glob('*.hdf5'))) > 0, f'{calculated_features_folder} does not contain hdf5 files'
-
+    assert len(list(
+        calculated_features_folder.glob('*.hdf5'))) > 0, f'{calculated_features_folder} does not contain hdf5 files'
 
     # list all hdf5 files in given input folder
     all_files = [f.as_posix().replace('_filtered_features', '')
@@ -133,7 +132,6 @@ def get_dataloaders(args):
         )
 
     return train_loaders, val_loaders, test_loaders
-
 
 
 def get_optimizer(args, network):

@@ -62,10 +62,13 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp_emg", help="dir path for logger file")
+    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default="emg_sgd_dp.csv", help="dir path for csv file")
+
 
     args = parser.parse_args()
 

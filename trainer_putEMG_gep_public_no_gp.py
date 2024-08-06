@@ -72,6 +72,9 @@ if __name__ == '__main__':
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="gep_public_emg", help="dir path for logger file")
+    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default="emg_gep_public.csv", help="dir path for csv file")
+
 
     args = parser.parse_args()
 
