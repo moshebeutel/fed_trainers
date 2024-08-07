@@ -68,7 +68,8 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="gep_public_emg", help="dir path for logger file")

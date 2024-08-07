@@ -18,16 +18,17 @@ for num_epochs in [30]:
                     # for sigma in [0.0]:
                     for sigma in [0.0, 2.016, 4.72, 12.79, 25.0]:
                         for optimizer in ['adam', 'sgd']:
-                            # for lr in [0.001]:
+                        # for optimizer in ['adam']:
+                        #     for lr in [0.001]:
                             for lr in [0.01, 0.001, 0.0001]:
                                 for num_public_clients in [5]:
                                     # for history_size in [50]:
                                     for history_size in [50, 100]:
                                         # for grad_clip in [1.0]:
-                                        for grad_clip in [5.0, 1.0] if sigma == 0.0 else [1.0, 0.1, 0.01]:
-                                            print(f'@@@ Run gep_public_no_gp lr {lr} sigma {sigma}'
-                                                  f'  grad_clip {grad_clip} '
-                                                  f'history_size {history_size} grad_clip {grad_clip} %%%')
+                                        for grad_clip in [10.0, 5.0, 1.0, 0.1, 0.01]:
+                                            print(f'@@@ Run gep_public_no_gp SIGMA {sigma} lr {lr} '
+                                                  f'grad_clip {grad_clip} optimizer {optimizer} '
+                                                  f'history_size {history_size}  %%%')
 
                                             sample_prob = float(num_clients) / float(num_client_agg)
                                             num_steps = math.ceil(num_epochs * sample_prob)

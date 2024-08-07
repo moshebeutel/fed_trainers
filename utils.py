@@ -470,6 +470,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc)
         'clip': args.clip,
         'noise-multiplier': args.noise_multiplier,
         'seed': args.seed,
+        'history_size': args.basis_gradients_history_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
         'dp_method': dp_method,
         'epoch_of_best_val': epoch_of_best_val,
         'best_val_acc': best_val_acc,
@@ -477,13 +478,15 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc)
     }
 
     new_row = pd.Series(new_row_dict)
+    new_row_df = pd.DataFrame([new_row])
     if csv_file_path.exists():
         df = pd.read_csv(csv_file_path)
-        df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
+        df = df[new_row_df.columns]
+        df = pd.concat([df, new_row_df], ignore_index=True)
     else:
-        df = pd.DataFrame(new_row.to_frame().T)
+        df = new_row_df
 
-    df.to_csv(csv_file_path)
+    df.to_csv(csv_file_path, index=False)
 
 
 def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss, val_acc_dict,

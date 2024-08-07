@@ -55,16 +55,17 @@ if __name__ == '__main__':
     parser.add_argument("--data-path", type=str,
                         default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=23, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=23, help="number of private clients")
+    parser.add_argument("--num-clients", type=int, default=16, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=16, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
-    parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
+    parser.add_argument("--classes-per-client", type=int, default=8, help="number of simulated clients")
 
     #############################
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=10, help="eval every X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="gep_private_emg", help="dir path for logger file")

@@ -97,10 +97,11 @@ def train(args, dataloaders):
         basis_gradients = add_new_gradients_to_history(noised_grads, basis_gradients,
                                                        args.basis_gradients_history_size)
 
-        pca = compute_subspace(basis_gradients, args.basis_gradients_history_size)
+        pca = compute_subspace(basis_gradients, int(args.basis_gradients_history_size * 0.8))
 
         # project grads to subspace
-        embedded_grads = embed_grad(noised_grads, pca).to(device)
+        # embedded_grads = embed_grad(noised_grads, pca).to(device)
+        embedded_grads = embed_grad(grads_flattened, pca).to(device)
 
         # aggregate sampled clients grads and project back to gradient space
         reconstructed_grad = project_back_embedding(embedded_grads, pca, device)
@@ -111,7 +112,7 @@ def train(args, dataloaders):
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params)
 
 
-        if (step + 1) % args.eval_every == 0 or (step + 1) == args.num_steps:
+        if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \

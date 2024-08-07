@@ -19,12 +19,13 @@ for num_epochs in [30]:
                     # for sigma in [0.0]:
                     for sigma in [0.0, 2.016, 4.72, 12.79, 25.0]:
                         for optimizer in ['adam', 'sgd']:
-                            # for lr in [0.001]:
+                        # for optimizer in ['adam']:
+                        #     for lr in [0.001]:
                             for lr in [0.01, 0.001, 0.0001]:
-                                # for grad_clip in [1.0]:
+                                # for grad_clip in [10.0]:
                                 for grad_clip in [10.0, 5.0, 1.0, 0.1, 0.01]:
-                                    print(f'@@@ Run sgd_dp lr {lr} sigma {sigma}'
-                                          f' grad_clip {grad_clip} %%%')
+                                    print(f'@@@ Run sgd_dp SIGMA {sigma} lr {lr} '
+                                          f'grad_clip {grad_clip} optimizer {optimizer} %%%')
                                     sample_prob = float(num_clients) / float(num_client_agg)
                                     num_steps = math.ceil(num_epochs * sample_prob)
                                     subprocess.run(['poetry', 'run', 'python', f'trainer_{script_name}_dp_no_gp.py',

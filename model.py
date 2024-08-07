@@ -230,7 +230,7 @@ class ResNet(nn.Module):
 
 
 class MLPTarget(nn.Module):
-    def __init__(self, num_features=192, num_classes=100, use_softmax=True):
+    def __init__(self, num_features=192, num_classes=100, use_softmax=False):
         super(MLPTarget, self).__init__()
 
         self.fc1 = nn.Linear(num_features, 256)
