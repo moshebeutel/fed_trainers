@@ -471,6 +471,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc)
         'noise-multiplier': args.noise_multiplier,
         'seed': args.seed,
         'history_size': args.gradients_history_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
+        'basis_size': args.basis_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
         'dp_method': dp_method,
         'epoch_of_best_val': epoch_of_best_val,
         'best_val_acc': best_val_acc,
