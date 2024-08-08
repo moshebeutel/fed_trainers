@@ -21,7 +21,7 @@ def get_dataloaders(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
-
+    data_name = 'mnist'
     ##################################
     #       Network args        #
     ##################################
@@ -59,8 +59,8 @@ if __name__ == '__main__':
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default="putEMG",
-        choices=['cifar10', 'cifar100', 'putEMG'], help="dataset"
+        "--data-name", type=str, default=data_name,
+        choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=50, help="total number of clients")
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="cifar_sgd_do.csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
 
 
     args = parser.parse_args()

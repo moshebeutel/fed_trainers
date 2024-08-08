@@ -3,8 +3,8 @@ import subprocess
 
 # ["num_blocks", "block_size", "optimizer", "lr", "num_clients_agg", "clip"]]
 num_users = 50
-data_name = 'putEMG'
-classes_per_client = 2 if data_name == 'cifar10' else 20
+data_name = 'mnist'
+classes_per_client = 2 if data_name in ['cifar10', 'mnist'] else 20
 script_name = 'cifar10'
 if data_name == 'putEMG':
     script_name = 'putEMG'
@@ -24,9 +24,9 @@ for num_epochs in [30]:
                                 for num_public_clients in [5]:
                                     # for history_size in [50]:
                                     for history_size in [100]:
+                                        # for grad_clip in [1.0, 0.1, 0.01]:
                                         for grad_clip in [0.1]:
-                                            for seed in [40, 41, 42]:
-                                                # for grad_clip in [1.0, 0.1, 0.01]:
+                                            for seed in [42]:
                                                 print(f'@@@ Run gep_public_no_gp SIGMA {sigma} lr {lr} '
                                                       f'grad_clip {grad_clip} optimizer {optimizer} '
                                                       f'history_size {history_size}  %%%')

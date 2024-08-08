@@ -17,6 +17,8 @@ def check_approx_error(L, target) -> float:
     return -1.0 if target.item() == 0 else error.item() / target.item()
 
 
+#  GEP UTILS  numpy variants
+#  *************************
 # def get_bases(pub_grad, num_bases):
 #     num_k = pub_grad.shape[0]
 #     num_p = pub_grad.shape[1]
@@ -49,7 +51,9 @@ def check_approx_error(L, target) -> float:
 #     embedding_np: np.ndarray = embedding.cpu().detach().numpy()
 #     grad_np: np.ndarray = pca.inverse_transform(embedding_np)
 #     return torch.from_numpy(grad_np).to(device)
-
+#  End of GEP UTILS  numpy variants
+#  *************************
+@torch.no_grad()
 def get_bases(pub_grad, num_bases) -> Tuple[int, torch.Tensor]:
     num_k = pub_grad.shape[0]
     num_p = pub_grad.shape[1]
@@ -71,13 +75,14 @@ def project_back_embedding(embedding: torch.Tensor, pca: torch.Tensor, device) -
     return reconstructed
 
 
-def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> PCA:
-    num_bases: int
-    pca: PCA
-    num_bases, pca = get_bases(basis_gradients, num_basis_elements)
+@torch.no_grad()
+def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> torch.Tensor:
+    pca: torch.Tensor
+    _, pca = get_bases(basis_gradients, num_basis_elements)
     return pca
 
 
+@torch.no_grad()
 def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: Optional[torch.Tensor],
                                  basis_gradients_history_size: int) -> Tensor:
     basis_gradients = torch.cat((basis_gradients, new_gradients), dim=0) \
@@ -89,6 +94,7 @@ def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: O
     return basis_gradients
 
 
+@torch.no_grad()
 def update_subspace(args, basis_gradients, grads_flattened):
     basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients,
                                                    args.basis_gradients_history_size)

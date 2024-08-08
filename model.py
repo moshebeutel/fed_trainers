@@ -166,7 +166,7 @@ class FeatureModel(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, layers, num_classes=10, basic_block_cls=BasicBlock):
+    def __init__(self, layers, num_classes=10, in_channels=3, basic_block_cls=BasicBlock):
         super(ResNet, self).__init__()
 
         self._output_info_fn = logging.info
@@ -175,7 +175,7 @@ class ResNet(nn.Module):
         self.gn_groups = 4
         self.num_layers = sum(layers)
         self.inplanes = 16
-        self.conv1 = conv3x3(3, 16)
+        self.conv1 = conv3x3(in_channels, 16)
         self.gn1 = nn.GroupNorm(self.gn_groups, 16, affine=False)
         self.relu = nn.ReLU(inplace=False)
         self.layers = nn.ModuleList(
@@ -270,9 +270,11 @@ def get_n_params(model: nn.Module):
 
 
 def get_model(args):
-    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8}[args.data_name]
-    if args.data_name == 'cifar10' or args.data_name == 'cifar100':
-        model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes)
+    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10}[args.data_name]
+    if args.data_name == 'cifar10' or args.data_name == 'cifar100' or args.data_name == 'mnist':
+        model = ResNet(layers=[args.block_size] * args.num_blocks,
+                       num_classes=num_classes,
+                       in_channels=1 if args.data_name == 'mnist' else 3)
     else:
         assert args.data_name == 'putEMG', 'data_name should be putEMG'
         assert num_classes == 8, 'num_classes should be 8'
