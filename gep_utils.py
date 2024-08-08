@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -17,38 +17,65 @@ def check_approx_error(L, target) -> float:
     return -1.0 if target.item() == 0 else error.item() / target.item()
 
 
-def get_bases(pub_grad, num_bases):
+# def get_bases(pub_grad, num_bases):
+#     num_k = pub_grad.shape[0]
+#     num_p = pub_grad.shape[1]
+#
+#     num_bases = min(num_bases, min(num_p, num_k))
+#
+#     pca = PCA(n_components=num_bases)
+#     pca.fit(pub_grad.cpu().detach().numpy())
+#
+#     error_rate = check_approx_error(torch.from_numpy(pca.components_).T, pub_grad)
+#
+#     return num_bases, error_rate, pca
+#
+#
+# def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> PCA:
+#     num_bases: int
+#     pub_error: float
+#     pca: PCA
+#     num_bases, pub_error, pca = get_bases(basis_gradients, num_basis_elements)
+#     return pca
+#
+#
+# def embed_grad(grad: torch.Tensor, pca: PCA) -> torch.Tensor:
+#     grad_np: np.ndarray = grad.cpu().detach().numpy()
+#     embedding: np.ndarray = pca.transform(grad_np)
+#     return torch.from_numpy(embedding)
+#
+#
+# def project_back_embedding(embedding: torch.Tensor, pca: PCA, device: torch.device) -> torch.Tensor:
+#     embedding_np: np.ndarray = embedding.cpu().detach().numpy()
+#     grad_np: np.ndarray = pca.inverse_transform(embedding_np)
+#     return torch.from_numpy(grad_np).to(device)
+
+def get_bases(pub_grad, num_bases) -> Tuple[int, torch.Tensor]:
     num_k = pub_grad.shape[0]
     num_p = pub_grad.shape[1]
 
     num_bases = min(num_bases, min(num_p, num_k))
 
-    pca = PCA(n_components=num_bases)
-    pca.fit(pub_grad.cpu().detach().numpy())
+    pca = torch.pca_lowrank(pub_grad, q=num_bases, niter=2)
 
-    error_rate = check_approx_error(torch.from_numpy(pca.components_).T, pub_grad)
+    return num_bases, pca[-1]
 
-    return num_bases, error_rate, pca
+
+def embed_grad(grad: torch.Tensor, pca: torch.Tensor) -> torch.Tensor:
+    embedding: torch.Tensor = torch.matmul(grad, pca)
+    return embedding
+
+
+def project_back_embedding(embedding: torch.Tensor, pca: torch.Tensor, device) -> torch.Tensor:
+    reconstructed = torch.matmul(embedding, pca.t())
+    return reconstructed
 
 
 def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> PCA:
     num_bases: int
-    pub_error: float
     pca: PCA
-    num_bases, pub_error, pca = get_bases(basis_gradients, num_basis_elements)
+    num_bases, pca = get_bases(basis_gradients, num_basis_elements)
     return pca
-
-
-def embed_grad(grad: torch.Tensor, pca: PCA) -> torch.Tensor:
-    grad_np: np.ndarray = grad.cpu().detach().numpy()
-    embedding: np.ndarray = pca.transform(grad_np)
-    return torch.from_numpy(embedding)
-
-
-def project_back_embedding(embedding: torch.Tensor, pca: PCA, device: torch.device) -> torch.Tensor:
-    embedding_np: np.ndarray = embedding.cpu().detach().numpy()
-    grad_np: np.ndarray = pca.inverse_transform(embedding_np)
-    return torch.from_numpy(grad_np).to(device)
 
 
 def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: Optional[torch.Tensor],
