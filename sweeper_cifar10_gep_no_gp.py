@@ -8,7 +8,7 @@ classes_per_client = 2 if data_name == 'cifar10' else 20
 script_name = 'cifar10'
 if data_name == 'putEMG':
     script_name = 'putEMG'
-    num_users = 16
+    num_users = 44
     classes_per_client = 8
 
 for num_epochs in [30]:
@@ -18,14 +18,14 @@ for num_epochs in [30]:
                 for block_size in [1]:
                     # for sigma in [0.0]:
                     for sigma in [0.0, 2.016, 4.72, 12.79, 25.0]:
-                        for optimizer in ['adam', 'sgd']:
+                        for optimizer in ['adam']:
                         # for optimizer in ['adam']:
                         #     for lr in [0.001]:
-                            for lr in [0.01, 0.001, 0.0001]:
+                            for lr in [0.01, 0.001]:
                                 # for history_size in [50]:
-                                for history_size in [50, 100]:
+                                for history_size in [50]:
                                     # for grad_clip in [1.0]:
-                                    for grad_clip in [10.0, 5.0, 1.0, 0.1, 0.01]:
+                                    for grad_clip in [1.0, 0.1, 0.01]:
                                         print(f'@@@ Run gep_no_gp SIGMA {sigma} lr {lr} '
                                               f'grad_clip {grad_clip} optimizer {optimizer} '
                                               f'history_size {history_size}  %%%')
@@ -38,6 +38,7 @@ for num_epochs in [30]:
                                                         '--block-size', str(block_size),
                                                         '--optimizer', optimizer,
                                                         '--lr', str(lr),
+                                                        '--seed', '40',
                                                         '--num-client-agg', str(num_client_agg),
                                                         '--num-blocks', str(num_blocks),
                                                         '--num-private-clients', str(num_clients),

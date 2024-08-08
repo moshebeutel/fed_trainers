@@ -7,7 +7,9 @@ import torch
 
 
 def get_user_list():
-    return ['03', '04', '06', '09', '11', '12', '13', '15', '16', '19', '22', '27', '31', '36', '38', '45']
+    return ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+            '22', '23', '24', '25', '26', '27', '29', '30', '31', '33', '34', '35', '36', '38', '39', '42', '43', '45',
+            '46', '47', '48', '49', '50', '51', '53', '54']
 
 
 def get_dataloaders(args):
@@ -89,7 +91,7 @@ def get_dataloaders(args):
     for id in range(num_clients // 2):
         train_x_s, test_x_s = [], []
         train_y_s, test_y_s = [], []
-        for client_id in [2 * id, 2 * id +1]:
+        for client_id in [2 * id, 2 * id + 1]:
             # iterate over each internal data
             for i_s, subject_data in enumerate(list(splits_all.values())[client_id]):
                 # get data of client
@@ -133,7 +135,6 @@ def get_dataloaders(args):
 
                 logger.debug(f'Train data list length: {len(train_x_s)}')
                 logger.debug(f'Test data list length: {len(test_x_s)}')
-
 
         train_loaders[id] = torch.utils.data.DataLoader(
             torch.utils.data.TensorDataset(train_x_s[0], train_y_s[0]),

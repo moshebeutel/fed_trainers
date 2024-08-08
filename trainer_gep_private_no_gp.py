@@ -97,7 +97,7 @@ def train(args, dataloaders):
         basis_gradients = add_new_gradients_to_history(noised_grads, basis_gradients,
                                                        args.basis_gradients_history_size)
 
-        pca = compute_subspace(basis_gradients, int(args.basis_gradients_history_size * 0.8))
+        pca = compute_subspace(basis_gradients, int(args.basis_gradients_history_size * 0.4))
 
         # project grads to subspace
         # embedded_grads = embed_grad(noised_grads, pca).to(device)

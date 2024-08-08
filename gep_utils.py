@@ -65,5 +65,5 @@ def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: O
 def update_subspace(args, basis_gradients, grads_flattened):
     basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients,
                                                    args.basis_gradients_history_size)
-    pca = compute_subspace(basis_gradients, int(args.basis_gradients_history_size * 0.8))
+    pca = compute_subspace(basis_gradients, int(args.basis_gradients_history_size * 0.4))
     return pca
