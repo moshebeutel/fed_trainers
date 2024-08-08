@@ -12,11 +12,6 @@ from utils import get_clients, get_device, local_train, flatten_tensor, eval_mod
 def train(args, dataloaders):
     logger = logging.getLogger(args.log_name)
 
-    fields_list = ["num_blocks", "block_size", "optimizer", "lr", "num_client_agg", "clip", "noise_multiplier"]
-    args_list = [(k, vars(args)[k]) for k in fields_list]
-
-    logger.debug(f' *** Training for args {args_list} ***')
-
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1 = 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
     public_clients, private_clients, dummy_clients = get_clients(args)
@@ -117,7 +112,7 @@ def train(args, dataloaders):
 
     _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
 
-    logger.info(f'## Test Results For Args {args_list}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
+    logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
     update_frame(args, dp_method='SGD_DP', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
                  test_avg_acc=test_avg_acc)

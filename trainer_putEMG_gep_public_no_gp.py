@@ -34,8 +34,9 @@ if __name__ == '__main__':
     ##################################
     #       GEP args                 #
     ##################################
-    parser.add_argument("--basis-gradients-history-size", type=int,
+    parser.add_argument("--gradients-history-size", type=int,
                         default=100, help="amount of past gradients participating in embedding subspace computation")
+    parser.add_argument("--basis-size", type=int, default=40, help="number of basis vectors")
 
     #############################
     #       General args        #

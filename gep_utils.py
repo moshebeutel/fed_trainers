@@ -84,19 +84,18 @@ def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> 
 
 @torch.no_grad()
 def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: Optional[torch.Tensor],
-                                 basis_gradients_history_size: int) -> Tensor:
+                                 gradients_history_size: int) -> Tensor:
     basis_gradients = torch.cat((basis_gradients, new_gradients), dim=0) \
         if basis_gradients is not None \
         else new_gradients
-    basis_gradients = basis_gradients[-basis_gradients_history_size:] \
-        if basis_gradients_history_size < basis_gradients.shape[0] \
+    basis_gradients = basis_gradients[-gradients_history_size:] \
+        if gradients_history_size < basis_gradients.shape[0] \
         else basis_gradients
     return basis_gradients
 
 
 @torch.no_grad()
-def update_subspace(args, basis_gradients, grads_flattened):
-    basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients,
-                                                   args.basis_gradients_history_size)
-    pca = compute_subspace(basis_gradients, int(args.basis_gradients_history_size * 0.4))
+def update_subspace(basis_gradients, grads_flattened, history_size, basis_size) -> torch.Tensor:
+    basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients, history_size)
+    pca = compute_subspace(basis_gradients, basis_size)
     return pca
