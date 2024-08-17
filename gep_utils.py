@@ -1,5 +1,4 @@
 from typing import Optional, Tuple
-
 import numpy as np
 import torch
 from sklearn.decomposition import PCA
@@ -61,6 +60,9 @@ def get_bases(pub_grad, num_bases) -> Tuple[int, torch.Tensor]:
     num_bases = min(num_bases, min(num_p, num_k))
 
     pca = torch.pca_lowrank(pub_grad, q=num_bases, niter=2)
+    # error_rate = check_approx_error(pca[-1], pub_grad)
+
+    # print(f'\n\t\t\t\t\t\t\t\tnum_bases {num_bases}\tPCA error: {error_rate}')
 
     return num_bases, pca[-1]
 
@@ -85,17 +87,18 @@ def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> 
 @torch.no_grad()
 def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: Optional[torch.Tensor],
                                  gradients_history_size: int) -> Tensor:
+    # print(f'\n\t\t\t\t\t\t\t\t1 - basis gradients shape {basis_gradients.shape if basis_gradients is not None else None}')
+
     basis_gradients = torch.cat((basis_gradients, new_gradients), dim=0) \
         if basis_gradients is not None \
         else new_gradients
+    # print(f'\n\t\t\t\t\t\t\t\t2 - basis gradients shape {basis_gradients.shape}')
+
     basis_gradients = basis_gradients[-gradients_history_size:] \
         if gradients_history_size < basis_gradients.shape[0] \
         else basis_gradients
+
+    # print(f'\n\t\t\t\t\t\t\t\t3 - basis gradients shape {basis_gradients.shape}')
+
     return basis_gradients
 
-
-@torch.no_grad()
-def update_subspace(basis_gradients, grads_flattened, history_size, basis_size) -> torch.Tensor:
-    basis_gradients = add_new_gradients_to_history(grads_flattened, basis_gradients, history_size)
-    pca = compute_subspace(basis_gradients, basis_size)
-    return pca

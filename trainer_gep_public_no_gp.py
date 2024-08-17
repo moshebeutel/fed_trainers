@@ -4,9 +4,9 @@ from collections import OrderedDict
 from typing import Optional
 import numpy as np
 import torch
-import wandb
 from tqdm import trange
-from gep_utils import update_subspace, embed_grad, project_back_embedding
+from gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
+    compute_subspace
 from model import get_model
 from utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
     load_aggregated_grads_to_global_net
@@ -65,8 +65,11 @@ def train(args, dataloaders):
 
         public_grads_list = [torch.stack(public_grads[n]) for n, p in net.named_parameters()]
 
-        public_grads_flattened = flatten_tensor(public_grads_list)
-        pca = update_subspace(basis_gradients, public_grads_flattened, args.gradients_history_size, args.basis_size)
+        public_grads_flat = flatten_tensor(public_grads_list)
+
+        basis_gradients = add_new_gradients_to_history(public_grads_flat, basis_gradients, args.gradients_history_size)
+
+        pca = compute_subspace(basis_gradients, args.basis_size)
 
         # *** End of public subspace update
 

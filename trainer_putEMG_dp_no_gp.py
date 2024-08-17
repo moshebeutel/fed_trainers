@@ -51,7 +51,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
     )
     parser.add_argument("--data-path", type=str,
-                        default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
+                        default='./data/EMG/putEMG/Data-HDF5-Features-Small',
+                        # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
     parser.add_argument("--num-private-clients", type=int, default=num_users, help="number of private clients")

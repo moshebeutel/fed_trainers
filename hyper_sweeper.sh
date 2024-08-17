@@ -25,14 +25,14 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Run the third Python script
-echo "Running $script3..."
-python3 "$script3"
-
-# Check if the third script was successful
-if [ $? -ne 0 ]; then
-    echo "$script3 failed. Exiting."
-    exit 1
-fi
+## Run the third Python script
+#echo "Running $script3..."
+#python3 "$script3"
+#
+## Check if the third script was successful
+#if [ $? -ne 0 ]; then
+#    echo "$script3 failed. Exiting."
+#    exit 1
+#fi
 
 echo "All scripts ran successfully."
