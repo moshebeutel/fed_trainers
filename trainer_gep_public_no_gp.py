@@ -17,6 +17,7 @@ def train(args, dataloaders):
 
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1 = 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
+    reconstruction_error_list = []
     public_clients, private_clients, dummy_clients = get_clients(args)
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
@@ -30,7 +31,9 @@ def train(args, dataloaders):
     train_loaders, val_loaders, test_loaders = dataloaders
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
+    reconstruction_error = 0.0
     step_iter = trange(args.num_steps)
+
     pbar_dict = {'Step': '0', 'Client': '0', 'Public_Private?': 'Public_',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
@@ -91,6 +94,7 @@ def train(args, dataloaders):
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
                               'Train Current Loss': f'{0.:.4f}',
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
+                              'Reconstruction Error': f'{reconstruction_error:.4f}',
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
@@ -122,6 +126,16 @@ def train(args, dataloaders):
 
         # aggregate sampled clients embedded grads and project back to gradient space
         reconstructed_grads = project_back_embedding(noised_embedded_grads, pca, device)
+
+        # reconstruction error
+        norm_reconstructed = torch.norm(reconstructed_grads, p=2, dim=-1, keepdim=True)
+        norm_original = torch.norm(grads_flattened, p=2, dim=-1, keepdim=True)
+        similarity = (torch.linalg.vecdot(reconstructed_grads, grads_flattened, dim=-1).reshape(
+            norm_reconstructed.shape) /
+                      (norm_reconstructed * norm_original))
+
+        reconstruction_error = float(torch.abs(1 - similarity).mean())
+        reconstruction_error_list.append(reconstruction_error)
 
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
@@ -159,4 +173,4 @@ def train(args, dataloaders):
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
     update_frame(args, dp_method='GEP_PUBLIC', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
-                 test_avg_acc=test_avg_acc)
+                 test_avg_acc=test_avg_acc, reconstruction_error=np.mean(reconstruction_error_list))

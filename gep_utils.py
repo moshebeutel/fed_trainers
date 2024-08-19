@@ -59,7 +59,7 @@ def get_bases(pub_grad, num_bases) -> Tuple[int, torch.Tensor]:
 
     num_bases = min(num_bases, min(num_p, num_k))
 
-    pca = torch.pca_lowrank(pub_grad, q=num_bases, niter=2)
+    pca = torch.pca_lowrank(pub_grad, q=num_bases, niter=10)
     # error_rate = check_approx_error(pca[-1], pub_grad)
 
     # print(f'\n\t\t\t\t\t\t\t\tnum_bases {num_bases}\tPCA error: {error_rate}')
@@ -98,7 +98,7 @@ def add_new_gradients_to_history(new_gradients: torch.Tensor, basis_gradients: O
         if gradients_history_size < basis_gradients.shape[0] \
         else basis_gradients
 
-    # print(f'\n\t\t\t\t\t\t\t\t3 - basis gradients shape {basis_gradients.shape}')
+        # print(f'\n\t\t\t\t\t\t\t\t3 - basis gradients shape {basis_gradients.shape}')
 
     return basis_gradients
 
