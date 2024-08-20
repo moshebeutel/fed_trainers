@@ -21,13 +21,14 @@ for data_name in ['cifar10']:
                 for num_blocks in [3]:
                     for block_size in [1]:
                         # for sigma in [0.0, 12.79]:
-                        for sigma in [0.0, 4.72, 12.79, 25.0]:
+                        # for sigma in [0.0, 4.72, 12.79, 25.0]:
+                        for sigma in [4.72, 12.79, 25.0]:
                         #     for optimizer in ['adam', 'sgd']:
                             for optimizer in ['adam']:
                                 for lr in [0.01]:
                                 # for lr in [0.01, 0.001]:
                                     for num_public_clients in [5]:
-                                        for history_size in [50]:
+                                        for history_size in [50, 150]:
                                         # for history_size in [160]:
                                             # for basis_size in [25, 50]:
                                             for basis_size in [0.6*history_size, 0.8*history_size, history_size]:
@@ -35,7 +36,7 @@ for data_name in ['cifar10']:
                                                 for grad_clip in clip_list:
                                                 # for grad_clip in [1.0, 0.1, 0.01]:
                                                 #     for seed in [43, 44, 45, 46, 47]:
-                                                    for seed in [43, 44, 45]:
+                                                    for seed in [63, 64, 65]:
 
                                                         print(f'@@@ Run gep_public_no_gp SIGMA {sigma} lr {lr} '
                                                               f'grad_clip {grad_clip} optimizer {optimizer} '
@@ -62,6 +63,9 @@ for data_name in ['cifar10']:
                                                                         '--clip', str(grad_clip),
                                                                         '--basis-size', str(int(basis_size)),
                                                                         '--gradients-history-size', str(history_size),
-                                                                        '--csv-name', f'{data_name}_gep_public.csv']
+                                                                        '--csv-name', f'{data_name}_gep_public.csv',
+                                                                        '--eval-after', str(10),
+                                                                        '--eval-every', str(10),
+                                                                        ]
                                                                        )
 

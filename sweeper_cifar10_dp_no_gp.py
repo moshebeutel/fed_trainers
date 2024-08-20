@@ -19,11 +19,12 @@ for data_name in ['cifar10']:
     for num_epochs in [5]:
     # for num_epochs in [3]:
         for num_clients in [num_users]:
-            for num_client_agg in [5]:
+            for num_client_agg in [20]:
                 for num_blocks in [3]:
                     for block_size in [1]:
                         # for sigma in [0.0, 12.79]:
-                        for sigma in [0.0, 4.72, 12.79, 25.0]:
+                        # for sigma in [0.0, 4.72, 12.79, 25.0]:
+                        for sigma in [4.72, 12.79, 25.0]:
                         #     for optimizer in ['adam', 'sgd']:
                             for optimizer in ['adam']:
                                 # for lr in [0.01, 0.001]:
@@ -52,5 +53,7 @@ for data_name in ['cifar10']:
                                                             '--num-public-clients', '0',
                                                             '--noise-multiplier', str(sigma),
                                                             '--clip', str(grad_clip),
-                                                            '--csv-name', f'{data_name}_sgd_dp.csv'
+                                                            '--csv-name', f'{data_name}_sgd_dp.csv',
+                                                            '--eval-after', str(10),
+                                                            '--eval-every', str(10)
                                                             ])
