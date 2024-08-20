@@ -27,16 +27,18 @@ def get_bases(pub_grad, num_bases):
     pca = PCA(n_components=num_bases)
     pca.fit(pub_grad.cpu().detach().numpy())
 
-    error_rate = check_approx_error(torch.from_numpy(pca.components_).T, pub_grad)
+    # error_rate = check_approx_error(torch.from_numpy(pca.components_).T, pub_grad)
 
-    return num_bases, error_rate, pca
+    return num_bases, pca
+    # return num_bases, error_rate, pca
 
 
 def compute_subspace(basis_gradients: torch.Tensor, num_basis_elements: int) -> PCA:
     num_bases: int
     pub_error: float
     pca: PCA
-    num_bases, pub_error, pca = get_bases(basis_gradients, num_basis_elements)
+    num_bases, pca = get_bases(basis_gradients, num_basis_elements)
+    # num_bases, pub_error, pca = get_bases(basis_gradients, num_basis_elements)
     return pca
 
 

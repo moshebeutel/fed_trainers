@@ -456,7 +456,7 @@ def get_clients(args):
     return public_clients, private_clients, dummy_clients
 
 
-def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_error=0.0):
+def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_similarity=0.0):
     csv_path = Path(args.csv_path)
     csv_path.mkdir(exist_ok=True)
     csv_file_path = csv_path / args.csv_name
@@ -476,7 +476,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
         'epoch_of_best_val': epoch_of_best_val,
         'best_val_acc': best_val_acc,
         'test_avg_acc': test_avg_acc,
-        'reconstruction_error': reconstruction_error
+        'reconstruction_similarity': reconstruction_similarity
     }
 
     new_row = pd.Series(new_row_dict)
