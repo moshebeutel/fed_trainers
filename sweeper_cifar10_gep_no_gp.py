@@ -22,17 +22,17 @@ for data_name in ['cifar10']:
             for num_client_agg in [5]:
                 for num_blocks in [3]:
                     for block_size in [1]:
-                        for sigma in [0.0, 2.016, 4.72, 12.79, 25.0]:
+                        for sigma in [0.0, 4.72, 12.79, 25.0]:
                         #     for optimizer in ['adam', 'sgd']:
                             for optimizer in ['adam']:
-                                # for lr in [0.01]:
-                                for lr in [0.01, 0.001]:
+                                for lr in [0.01]:
+                                # for lr in [0.01, 0.001]:
                                     for num_public_clients in [5]:
-                                        for history_size in [50, 100]:
+                                        for history_size in [50]:
                                         # for history_size in [160]:
                                             # for basis_size in [25, 50]:
-                                            for basis_size in [0.8*history_size, history_size]:
-                                                clip_list = [5.0, 1.0] if sigma == 0.0 else [0.01, 0.001]
+                                            for basis_size in [0.6*history_size, 0.8*history_size, history_size]:
+                                                clip_list = [5.0] if sigma == 0.0 else [0.01]
                                                 for grad_clip in clip_list:
                                                     # for grad_clip in [1.0, 0.1, 0.01]:
                                                     for seed in [43, 44, 45]:

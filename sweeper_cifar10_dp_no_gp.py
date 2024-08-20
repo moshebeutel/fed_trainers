@@ -23,12 +23,12 @@ for data_name in ['cifar10']:
                 for num_blocks in [3]:
                     for block_size in [1]:
                         # for sigma in [0.0, 12.79]:
-                        for sigma in [0.0, 2.016, 4.72, 12.79, 25.0]:
+                        for sigma in [0.0, 4.72, 12.79, 25.0]:
                         #     for optimizer in ['adam', 'sgd']:
                             for optimizer in ['adam']:
-                                for lr in [0.01, 0.001]:
-                                # for lr in [0.01]:
-                                    clip_list = [5.0, 1.0] if sigma == 0.0 else [0.01, 0.001]
+                                # for lr in [0.01, 0.001]:
+                                for lr in [0.01]:
+                                    clip_list = [5.0] if sigma == 0.0 else [0.01]
                                     # for grad_clip in [1.0, 0.1, 0.01]:
                                     for grad_clip in clip_list:
                                         for seed in [43, 44, 45]:
