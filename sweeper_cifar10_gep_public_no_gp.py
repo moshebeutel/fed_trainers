@@ -14,7 +14,7 @@ for data_name in ['cifar10']:
         script_name = 'putEMG'
         num_users = 44
         classes_per_client = 8
-    for num_epochs in [20]:
+    for num_epochs in [5]:
     # for num_epochs in [3]:
         for num_clients in [num_users]:
             for num_client_agg in [5]:
@@ -24,17 +24,18 @@ for data_name in ['cifar10']:
                         for sigma in [0.0, 2.016, 4.72, 12.79, 25.0]:
                         #     for optimizer in ['adam', 'sgd']:
                             for optimizer in ['adam']:
-                                for lr in [0.01]:
-                                # for lr in [0.01, 0.001]:
+                                # for lr in [0.01]:
+                                for lr in [0.01, 0.001]:
                                     for num_public_clients in [5]:
-                                        # for history_size in [50, 100]:
-                                        for history_size in [160]:
+                                        for history_size in [50, 100]:
+                                        # for history_size in [160]:
                                             # for basis_size in [25, 50]:
-                                            for basis_size in [0.75*history_size, history_size]:
-                                                clip_list = [1.0] if sigma == 0.0 else [0.001]
+                                            for basis_size in [0.8*history_size, history_size]:
+                                                clip_list = [5.0, 1.0] if sigma == 0.0 else [0.01, 0.001]
                                                 for grad_clip in clip_list:
                                                 # for grad_clip in [1.0, 0.1, 0.01]:
-                                                    for seed in [43, 44, 45, 46, 47]:
+                                                #     for seed in [43, 44, 45, 46, 47]:
+                                                    for seed in [43, 44, 45]:
 
                                                         print(f'@@@ Run gep_public_no_gp SIGMA {sigma} lr {lr} '
                                                               f'grad_clip {grad_clip} optimizer {optimizer} '
@@ -60,6 +61,7 @@ for data_name in ['cifar10']:
                                                                         '--noise-multiplier', str(sigma),
                                                                         '--clip', str(grad_clip),
                                                                         '--basis-size', str(int(basis_size)),
-                                                                        '--gradients-history-size', str(history_size)],
+                                                                        '--gradients-history-size', str(history_size),
+                                                                        '--csv-name', f'{data_name}_gep_public.csv']
                                                                        )
 

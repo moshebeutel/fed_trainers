@@ -456,7 +456,7 @@ def get_clients(args):
     return public_clients, private_clients, dummy_clients
 
 
-def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_error):
+def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_error=0.0):
     csv_path = Path(args.csv_path)
     csv_path.mkdir(exist_ok=True)
     csv_file_path = csv_path / args.csv_name
