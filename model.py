@@ -1,8 +1,9 @@
 import logging
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from utils import get_n_params
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -165,7 +166,7 @@ class FeatureModel(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, layers, num_classes=10, basic_block_cls=BasicBlock):
+    def __init__(self, layers, num_classes=10, in_channels=3, basic_block_cls=BasicBlock):
         super(ResNet, self).__init__()
 
         self._output_info_fn = logging.info
@@ -174,7 +175,7 @@ class ResNet(nn.Module):
         self.gn_groups = 4
         self.num_layers = sum(layers)
         self.inplanes = 16
-        self.conv1 = conv3x3(3, 16)
+        self.conv1 = conv3x3(in_channels, 16)
         self.gn1 = nn.GroupNorm(self.gn_groups, 16, affine=False)
         self.relu = nn.ReLU(inplace=False)
         self.layers = nn.ModuleList(
@@ -229,7 +230,7 @@ class ResNet(nn.Module):
 
 
 class MLPTarget(nn.Module):
-    def __init__(self, num_features=192, num_classes=100, use_softmax=True):
+    def __init__(self, num_features=192, num_classes=100, use_softmax=False):
         super(MLPTarget, self).__init__()
 
         self.fc1 = nn.Linear(num_features, 256)
@@ -243,8 +244,44 @@ class MLPTarget(nn.Module):
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
-        x = F.log_softmax(x, dim=1) if self._use_softmax else x
+        x = F.softmax(x, dim=1) if self._use_softmax else x
         return x
+
+
+def initialize_weights(module: nn.Module):
+    for m in module.modules():
+
+        if isinstance(m, nn.Conv3d):
+            nn.init.kaiming_normal_(m.weight)
+            m.bias.data.zero_()
+        elif isinstance(m, nn.Conv2d):
+            nn.init.kaiming_normal_(m.weight)
+            if m.bias is not None:
+                m.bias.data.zero_()
+        elif isinstance(m, nn.Linear):
+            nn.init.kaiming_normal_(m.weight)
+            m.bias.data.zero_()
+
+
+def get_n_params(model: nn.Module):
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    number_params = sum([np.prod(p.size()) for p in model_parameters])
+    return number_params
+
+
+def get_model(args):
+    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10}[args.data_name]
+    if args.data_name == 'cifar10' or args.data_name == 'cifar100' or args.data_name == 'mnist':
+        model = ResNet(layers=[args.block_size] * args.num_blocks,
+                       num_classes=num_classes,
+                       in_channels=1 if args.data_name == 'mnist' else 3)
+    else:
+        assert args.data_name == 'putEMG', 'data_name should be putEMG'
+        assert num_classes == 8, 'num_classes should be 8'
+        model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
+
+    initialize_weights(model)
+    return model
 
 
 if __name__ == '__main__':

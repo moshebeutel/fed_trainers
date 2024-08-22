@@ -1,37 +1,20 @@
-import random
-import logging
 import argparse
-from contextlib import contextmanager
-import os
+import copy
 import json
-from pathlib import Path
+import logging
+import os
+import random
 import sys
+import time
 import warnings
-
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Dict
 import numpy as np
+import pandas as pd
 import torch
-from torch import nn
-
-
-def get_n_params(model: nn.Module):
-    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    number_params = sum([np.prod(p.size()) for p in model_parameters])
-    return number_params
-
-
-def initialize_weights(module: nn.Module):
-    for m in module.modules():
-
-        if isinstance(m, nn.Conv3d):
-            nn.init.kaiming_normal_(m.weight)
-            m.bias.data.zero_()
-        elif isinstance(m, nn.Conv2d):
-            nn.init.kaiming_normal_(m.weight)
-            if m.bias is not None:
-                m.bias.data.zero_()
-        elif isinstance(m, nn.Linear):
-            nn.init.kaiming_normal_(m.weight)
-            m.bias.data.zero_()
+import wandb
+from sklearn import metrics
 
 
 def set_seed(seed, cudnn_enabled=True):
@@ -54,11 +37,22 @@ def set_seed(seed, cudnn_enabled=True):
     torch.backends.cudnn.deterministic = True
 
 
-def set_logger():
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
+def set_logger(args):
+    logger = logging.getLogger(args.log_name)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    log_dir = Path(args.log_dir)
+    log_dir.mkdir(exist_ok=True)
+    file_handler = logging.FileHandler(log_dir / f'{args.log_name}_{time.asctime()}.log')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    return logger
 
 
 def get_device(cuda=True, gpus='0'):
@@ -319,3 +313,218 @@ def calc_metrics(results):
     avg_loss = np.mean([val['loss'] for val in results.values()])
     avg_acc = total_correct / total_samples
     return avg_loss, avg_acc
+
+
+def local_train(args, net, train_loader, pbar, pbar_dict: Dict):
+    local_net = copy.deepcopy(net)
+    local_net.train()
+    optimizer = get_optimizer(args, local_net)
+    criteria = torch.nn.CrossEntropyLoss()
+    device = get_device()
+    train_avg_loss = 0.0
+    for i in range(args.inner_steps):
+        for k, batch in enumerate(train_loader):
+            x, Y = tuple(t.to(device) for t in batch)
+
+            optimizer.zero_grad()
+
+            # forward prop
+            pred = local_net(x)
+            loss = criteria(pred, Y)
+
+            # back prop
+            loss.backward()
+            # # clip gradients
+            # torch.nn.utils.clip_grad_norm_(local_net.parameters(), args.clip)
+            # update local parameters
+            optimizer.step()
+
+            # aggregate losses
+            train_avg_loss += (loss.item() / Y.shape[0])
+
+            pbar_dict.update({"Inner Step": f'{(i + 1)}'.zfill(3),
+                              "Batch": f'{(k + 1)}'.zfill(3),
+                              "Train Current Loss": f'{loss.item():5.2f}'})
+            pbar.set_postfix(pbar_dict)
+
+        # end of for k, batch in enumerate(train_loader):
+    # end of for i in range(args.inner_steps):
+    return local_net, train_avg_loss
+
+
+def get_optimizer(args, network):
+    return torch.optim.SGD(network.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9) \
+        if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
+
+
+@torch.no_grad()
+def eval_model(args, global_model, client_ids, loaders):
+    device = get_device()
+    # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
+
+    loss_dict: Dict[str, float] = {}
+    acc_dict: Dict[str, float] = {}
+    acc_score_dict: Dict[str, float] = {}
+    f1s_dict: Dict[str, float] = {}
+    criteria = torch.nn.CrossEntropyLoss()
+
+    y_true_all, y_pred_all, loss_all = None, None, 0.
+
+    global_model.eval()
+    num_clients = len(client_ids)
+
+    for i, client_id in enumerate(client_ids):
+        running_loss, running_correct, running_samples = 0., 0., 0.
+
+        test_loader = loaders[client_id]
+
+        all_targets = []
+        all_preds = []
+
+        for batch_count, batch in enumerate(test_loader):
+            X_test, Y_test = tuple(t.to(device) for t in batch)
+            pred = global_model(X_test)
+
+            loss = criteria(pred, Y_test)
+            predicted = torch.max(pred, dim=1)[1].cpu().numpy()
+
+            running_loss += (loss.item() * Y_test.size(0))
+            running_correct += pred.argmax(1).eq(Y_test).sum().item()
+            running_samples += Y_test.size(0)
+
+            target = Y_test.cpu().numpy().reshape(predicted.shape)
+
+            all_targets += target.tolist()
+            all_preds += predicted.tolist()
+
+        # calculate confusion matrix
+        y_true = np.array(all_targets)
+        y_pred = np.array(all_preds)
+        running_loss /= running_samples
+
+        y_true_all = y_true if y_true_all is None else np.concatenate((y_true_all, y_true), axis=0)
+        y_pred_all = y_pred if y_pred_all is None else np.concatenate((y_pred_all, y_pred), axis=0)
+        loss_all += (running_loss / num_clients)
+
+        eval_accuracy = (y_true == y_pred).sum().item() / running_samples
+        acc_score = metrics.accuracy_score(y_true, y_pred)
+        f1 = metrics.f1_score(y_true, y_pred, average='micro')
+
+        acc_dict[f"P{client_id}"] = eval_accuracy
+        loss_dict[f"P{client_id}"] = running_loss
+        acc_score_dict[f"P{client_id}"] = acc_score
+        f1s_dict[f"P{client_id}"] = f1
+
+    avg_acc = (y_true_all == y_pred_all).mean().item()
+    avg_loss = loss_all
+    avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
+    avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
+
+    return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+
+
+def flatten_tensor(tensor_list) -> torch.Tensor:
+    """
+    Taken from https://github.com/dayu11/Gradient-Embedding-Perturbation
+    """
+    for i in range(len(tensor_list)):
+        tensor_list[i] = tensor_list[i].reshape([tensor_list[i].shape[0], -1])
+        # tensor_list[i] = tensor_list[i].reshape(1, -1)
+    flatten_param = torch.cat(tensor_list, dim=1)
+    del tensor_list
+    return flatten_param
+
+
+def get_clients(args):
+    num_clients = args.num_clients
+    num_private_clients = args.num_private_clients
+    num_public_clients = args.num_public_clients
+
+    assert num_clients >= (num_private_clients + num_public_clients), \
+        f'num clients should be more than sum of all participating clients. Got {num_clients} clients'
+
+    num_dummy_clients = num_clients - (num_private_clients + num_public_clients)
+
+    i = 0
+    public_clients = list(range(i, i + num_public_clients))
+    i += num_public_clients
+    private_clients = list(range(i, i + num_private_clients))
+    i += num_private_clients
+    dummy_clients = list(range(i, i + num_dummy_clients))
+    i += num_dummy_clients
+
+    return public_clients, private_clients, dummy_clients
+
+
+def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_similarity=0.0):
+    csv_path = Path(args.csv_path)
+    csv_path.mkdir(exist_ok=True)
+    csv_file_path = csv_path / args.csv_name
+
+    new_row_dict = {
+        'data_name': args.data_name,
+        'num-steps': args.num_steps,
+        'optimizer': args.optimizer,
+        'lr': args.lr,
+        'num-client-agg': args.num_client_agg,
+        'clip': args.clip,
+        'noise-multiplier': args.noise_multiplier,
+        'seed': args.seed,
+        'history_size': args.gradients_history_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
+        'basis_size': args.basis_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
+        'dp_method': dp_method,
+        'epoch_of_best_val': epoch_of_best_val,
+        'best_val_acc': best_val_acc,
+        'test_avg_acc': test_avg_acc,
+        'reconstruction_similarity': reconstruction_similarity
+    }
+
+    new_row = pd.Series(new_row_dict)
+    new_row_df = pd.DataFrame([new_row])
+    if csv_file_path.exists():
+        df = pd.read_csv(csv_file_path)
+        df = df[new_row_df.columns]
+        df = pd.concat([df, new_row_df], ignore_index=True)
+    else:
+        df = new_row_df
+
+    df.to_csv(csv_file_path, index=False)
+
+
+def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss, val_acc_dict,
+              val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
+              val_loss_dict):
+    log_dict = {}
+    log_dict.update(
+        {
+            'custom_step': step,
+            'train_loss': train_avg_loss,
+            'test_avg_loss': val_avg_loss,
+            'test_avg_acc': val_avg_acc,
+            'test_avg_acc_score': val_avg_acc_score,
+            'test_avg_f1': val_avg_f1,
+            'test_best_loss': best_loss,
+            'test_best_acc': best_acc,
+            'test_best_acc_score': best_acc_score,
+            'test_best_f1': best_f1,
+            'test_best_epoch': best_epoch
+        }
+    )
+    log_dict.update({f"test_acc_{l}": m for (l, m) in val_acc_dict.items()})
+    log_dict.update({f"test_loss_{l}": m for (l, m) in val_loss_dict.items()})
+    log_dict.update({f"test_acc_score_{l}": m for (l, m) in val_acc_score_dict.items()})
+    log_dict.update({f"test_f1_{l}": m for (l, m) in val_f1s_dict.items()})
+    wandb.log(log_dict)
+
+
+@torch.no_grad()
+def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params):
+    # update old parameters using private aggregated grads
+    params = {}
+    offset = 0
+    for n, p in prev_params.items():
+        params[n] = p + aggregated_grads[offset: offset + p.numel()].reshape(p.shape)
+        offset += p.numel()
+    # update new parameters of global net
+    net.load_state_dict(params)
+    return net

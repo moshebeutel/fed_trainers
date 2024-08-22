@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 import torch.utils.data
 import torchvision.transforms as transforms
-from torchvision.datasets import CIFAR10, CIFAR100
+from torchvision.datasets import CIFAR10, CIFAR100, MNIST
 
 
 def get_datasets(data_name, dataroot, normalize=True, val_size=10000):
@@ -23,6 +23,10 @@ def get_datasets(data_name, dataroot, normalize=True, val_size=10000):
     elif data_name == 'cifar100':
         normalization = transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762))
         data_obj = CIFAR100
+    elif data_name == 'mnist':
+        normalization = transforms.Normalize((0.1307,), (0.3081,))
+        data_obj = MNIST
+
     else:
         raise ValueError("choose data_name from ['mnist', 'cifar10', 'cifar100']")
 
