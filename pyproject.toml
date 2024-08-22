@@ -6,12 +6,13 @@ authors = ["moshe <moshebeutel@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "3.8.1"
+python = "3.8.10"
 torch = "^2.3.1"
 torchvision = "^0.18.1"
 tqdm = "^4.66.4"
 wandb = "^0.17.4"
-gpytorch = "^1.12"
+gpytorch = {path = "gpytorch"}
+pyeeg = "^0.0.2"
 
 
 [build-system]

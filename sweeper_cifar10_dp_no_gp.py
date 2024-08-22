@@ -4,7 +4,7 @@ import subprocess
 
 # ["num_blocks", "block_size", "optimizer", "lr", "num_clients_agg", "clip"]]
 
-data_name = 'putEMG'
+data_name = 'cifar10'
 
 for num_epochs in [10]:
     for num_clients in [23]:

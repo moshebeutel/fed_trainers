@@ -1,3 +1,12 @@
+[submodule "pyeeg"]
+	path = pyeeg
+	url = https://github.com/forrestbao/pyeeg.git
 [submodule "biolab_utilities"]
 	path = biolab_utilities
 	url = https://github.com/biolab-put/biolab_utilities.git
+[submodule "pypolyagamma"]
+	path = pypolyagamma
+	url = https://github.com/slinderman/pypolyagamma.git
+[submodule "gpytorch"]
+	path = gpytorch
+	url = https://github.com/cornellius-gp/gpytorch.git
