@@ -4,9 +4,9 @@ from collections import OrderedDict
 from typing import Optional
 import numpy as np
 import torch
-import wandb
 from tqdm import trange
-from gep_utils import update_subspace, embed_grad, project_back_embedding
+from gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
+    compute_subspace
 from model import get_model
 from utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
     load_aggregated_grads_to_global_net
@@ -17,6 +17,7 @@ def train(args, dataloaders):
 
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1 = 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
+    reconstruction_similarities = []
     public_clients, private_clients, dummy_clients = get_clients(args)
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
@@ -30,7 +31,9 @@ def train(args, dataloaders):
     train_loaders, val_loaders, test_loaders = dataloaders
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
+    reconstruction_similarity = 0.0
     step_iter = trange(args.num_steps)
+
     pbar_dict = {'Step': '0', 'Client': '0', 'Public_Private?': 'Public_',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
@@ -65,8 +68,11 @@ def train(args, dataloaders):
 
         public_grads_list = [torch.stack(public_grads[n]) for n, p in net.named_parameters()]
 
-        public_grads_flattened = flatten_tensor(public_grads_list)
-        pca = update_subspace(basis_gradients, public_grads_flattened, args.gradients_history_size, args.basis_size)
+        public_grads_flat = flatten_tensor(public_grads_list)
+
+        basis_gradients = add_new_gradients_to_history(public_grads_flat, basis_gradients, args.gradients_history_size)
+
+        pca = compute_subspace(basis_gradients, args.basis_size)
 
         # *** End of public subspace update
 
@@ -88,6 +94,7 @@ def train(args, dataloaders):
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
                               'Train Current Loss': f'{0.:.4f}',
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
+                              'Reconstruction Similarity': f'{reconstruction_similarity:.4f}',
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
@@ -119,6 +126,16 @@ def train(args, dataloaders):
 
         # aggregate sampled clients embedded grads and project back to gradient space
         reconstructed_grads = project_back_embedding(noised_embedded_grads, pca, device)
+
+        # reconstruction error
+        norm_reconstructed = torch.norm(reconstructed_grads, p=2, dim=-1, keepdim=True)
+        norm_original = torch.norm(grads_flattened, p=2, dim=-1, keepdim=True)
+        similarity = (torch.linalg.vecdot(reconstructed_grads, grads_flattened, dim=-1).reshape(
+            norm_reconstructed.shape) /
+                      (norm_reconstructed * norm_original))
+
+        reconstruction_similarity = float(torch.abs(similarity).mean())
+        reconstruction_similarities.append(reconstruction_similarity)
 
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
@@ -156,4 +173,4 @@ def train(args, dataloaders):
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
     update_frame(args, dp_method='GEP_PUBLIC', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
-                 test_avg_acc=test_avg_acc)
+                 test_avg_acc=test_avg_acc, reconstruction_similarity=np.mean(reconstruction_similarities))

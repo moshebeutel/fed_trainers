@@ -1,7 +1,7 @@
 import copy
 import logging
 from collections import OrderedDict
-from typing import Optional
+from typing import Optional, List
 import numpy as np
 import torch
 import wandb
@@ -17,6 +17,7 @@ def train(args, dataloaders):
 
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1 = 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
+    reconstruction_similarities: List[float] = []
     public_clients, private_clients, dummy_clients = get_clients(args)
     device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
@@ -29,6 +30,7 @@ def train(args, dataloaders):
     train_loaders, val_loaders, test_loaders = dataloaders
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
+    reconstruction_similarity = 0.0
     step_iter = trange(args.num_steps)
 
     pbar_dict = {'Step': '0', 'Client': '0',
@@ -60,6 +62,7 @@ def train(args, dataloaders):
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
                               'Train Current Loss': f'{0.:.4f}',
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
+                              'Reconstruction Similarity': f'{reconstruction_similarity:.4f}',
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
@@ -96,9 +99,19 @@ def train(args, dataloaders):
         # embedded_grads = embed_grad(grads_flattened, pca).to(device)
 
         # aggregate sampled clients grads and project back to gradient space
-        reconstructed_grad = project_back_embedding(embedded_grads, pca, device)
+        reconstructed_grads = project_back_embedding(embedded_grads, pca, device)
 
-        aggregated_grads = torch.mean(reconstructed_grad, dim=0)
+        # reconstruction error
+        norm_reconstructed = torch.norm(reconstructed_grads, p=2, dim=-1, keepdim=True)
+        norm_original = torch.norm(grads_flattened, p=2, dim=-1, keepdim=True)
+        similarity = (torch.linalg.vecdot(reconstructed_grads, grads_flattened, dim=-1).reshape(
+            norm_reconstructed.shape) /
+                      (norm_reconstructed * norm_original))
+
+        reconstruction_similarity = float(torch.abs(similarity).mean())
+        reconstruction_similarities.append(reconstruction_similarity)
+
+        aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
         # update old parameters using private aggregated grads
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params)
@@ -133,4 +146,4 @@ def train(args, dataloaders):
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
     update_frame(args, dp_method='GEP_PRIVATE', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
-                 test_avg_acc=test_avg_acc)
+                 test_avg_acc=test_avg_acc, reconstruction_similarity=np.median(reconstruction_similarities))
