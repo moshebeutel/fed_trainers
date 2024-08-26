@@ -2,9 +2,9 @@ import argparse
 from pathlib import Path
 import torch
 import wandb
-from emg_utils import get_dataloaders
-from trainer_gep_public_no_gp import train
-from utils import set_logger, set_seed, str2bool
+from datasets.emg_utils import get_dataloaders
+from no_gp.trainers.trainer_gep_public_no_gp import train
+from common.utils import set_logger, set_seed, str2bool
 
 if __name__ == '__main__':
 

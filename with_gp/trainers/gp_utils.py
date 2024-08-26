@@ -5,12 +5,14 @@ import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
-from utils import detach_to_numpy, get_optimizer, get_device
+from common.utils import detach_to_numpy, get_optimizer, get_device
 
 
 @torch.no_grad()
 def eval_model(args, global_model, client_ids, train_loaders, eval_loaders, GPs):
-    results: defaultdict[int, defaultdict[str, float]] = defaultdict()
+    # results: defaultdict[int, defaultdict[str, float]] = defaultdict()
+    results = defaultdict(lambda: defaultdict(list))
+
     targets = []
     preds = []
     step_results = []
@@ -26,7 +28,7 @@ def eval_model(args, global_model, client_ids, train_loaders, eval_loaders, GPs)
         train_loader = train_loaders[client_id]
 
         # build tree at each step
-        GPs[client_id], label_map, Y_train, X_train = build_tree(global_model, client_id, train_loader)
+        GPs[client_id], label_map, Y_train, X_train = build_tree(global_model, client_id, train_loader, GPs)
         GPs[client_id].eval()
         client_data_labels = []
         client_data_preds = []
@@ -102,7 +104,7 @@ def build_tree(net, client_id, loader, GPs: torch.nn.ModuleList):
 def local_train(args, net, train_loader,
                 client_id: int,
                 GPs: torch.nn.ModuleList,
-                pbar: tqdm[int], pbar_dict: Dict):
+                pbar: tqdm, pbar_dict: Dict):
     local_net = copy.deepcopy(net)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
@@ -110,7 +112,7 @@ def local_train(args, net, train_loader,
     train_avg_loss = 0.0
 
     # build tree at each step
-    GPs[client_id], label_map, _, __ = build_tree(local_net, client_id, train_loader)
+    GPs[client_id], label_map, _, __ = build_tree(local_net, client_id, train_loader, GPs)
     GPs[client_id].train()
 
     for i in range(args.inner_steps):

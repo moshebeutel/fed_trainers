@@ -235,7 +235,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
             as 1e-6 (float) or 1e-8 (double)
     """
     try:
-        L = torch.cholesky(A, upper=upper, out=out)
+        L = torch.linalg.cholesky(A, upper=upper, out=out)
         return L
     except RuntimeError as e:
         isnan = torch.isnan(A)

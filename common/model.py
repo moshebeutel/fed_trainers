@@ -5,6 +5,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from pFedGP.experiments.backbone import CNNTarget
+
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
@@ -166,7 +168,9 @@ class FeatureModel(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, layers, num_classes=10, in_channels=3, basic_block_cls=BasicBlock):
+    def __init__(self, layers, num_classes=10, in_channels=3,
+                 basic_block_cls=BasicBlock,
+                 cls_layer=True, use_softmax=False, *args, **kwargs):
         super(ResNet, self).__init__()
 
         self._output_info_fn = logging.info
@@ -182,7 +186,7 @@ class ResNet(nn.Module):
             [self._make_layer(basic_block_cls, 2 ** (i + 4), layers[i], stride=2 if i > 0 else 1)
              for i in range(len(layers))])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(2 ** (int(len(layers) + 3)), num_classes)
+        self.fc = nn.Linear(2 ** (int(len(layers) + 3)), num_classes) if cls_layer else nn.Identity()
         # self.fc = FeatureModel(num_features=2 ** (int(len(layers) + 3)),
         #                        number_of_classes=num_classes,
         #                        cls_layer=True,
@@ -271,10 +275,14 @@ def get_n_params(model: nn.Module):
 
 def get_model(args):
     num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10}[args.data_name]
+    in_channels = 1 if args.data_name == 'mnist' else 3
     if args.data_name == 'cifar10' or args.data_name == 'cifar100' or args.data_name == 'mnist':
-        model = ResNet(layers=[args.block_size] * args.num_blocks,
-                       num_classes=num_classes,
-                       in_channels=1 if args.data_name == 'mnist' else 3)
+
+        model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim) \
+            if args.use_gp \
+            else ResNet(layers=[args.block_size] * args.num_blocks,
+                        num_classes=num_classes,
+                        in_channels=in_channels)
     else:
         assert args.data_name == 'putEMG', 'data_name should be putEMG'
         assert num_classes == 8, 'num_classes should be 8'

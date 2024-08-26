@@ -161,7 +161,3 @@ def get_dataloaders(args):
 
     return train_loaders, val_loaders, test_loaders
 
-
-def get_optimizer(args, network):
-    return torch.optim.SGD(network.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9) \
-        if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)

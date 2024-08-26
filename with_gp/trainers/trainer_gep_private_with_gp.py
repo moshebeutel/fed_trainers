@@ -4,12 +4,13 @@ from collections import OrderedDict
 from typing import Optional, List
 import numpy as np
 import torch
-import wandb
 from tqdm import trange
-from gep_utils import add_new_gradients_to_history, compute_subspace, embed_grad, project_back_embedding
-from model import get_model
-from utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
-    load_aggregated_grads_to_global_net
+from common.gep_utils import add_new_gradients_to_history, compute_subspace, embed_grad, project_back_embedding
+from common.model import get_model
+from common.utils import get_clients, get_device, flatten_tensor, update_frame, log2wandb, \
+    load_aggregated_grads_to_global_net, calc_metrics
+from pFedGP.pFedGP.Learner import pFedGPFullLearner
+from with_gp.trainers.gp_utils import eval_model, local_train
 
 
 def train(args, dataloaders):
@@ -28,6 +29,12 @@ def train(args, dataloaders):
     basis_gradients: Optional[torch.Tensor] = None
 
     train_loaders, val_loaders, test_loaders = dataloaders
+
+    num_clients = len(public_clients) + len(private_clients)
+    classes_per_client = args.classes_per_client
+    GPs = torch.nn.ModuleList([])
+    for client_id in range(num_clients):
+        GPs.append(pFedGPFullLearner(args, classes_per_client))  # GP instances
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
     reconstruction_similarity = 0.0
@@ -67,11 +74,14 @@ def train(args, dataloaders):
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
             local_net, train_avg_loss = local_train(args, net, train_loader,
-                                                    pbar=step_iter, pbar_dict=pbar_dict)
-
+                                                    c_id, GPs,
+                                                    pbar=step_iter,
+                                                    pbar_dict=pbar_dict)
             # get client grads and sum.
             for n, p in local_net.named_parameters():
                 grads[n].append(p.data.detach() - prev_params[n])
+            # erase tree (no need to save it)
+            GPs[c_id].tree = None
 
         # stack sampled clients grads
         grads_list = [torch.stack(grads[n]) for n, p in net.named_parameters()]
@@ -116,32 +126,29 @@ def train(args, dataloaders):
         # update old parameters using private aggregated grads
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params)
 
-
         if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:
-            val_results = eval_model(args, net, private_clients, val_loaders)
-
-            val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
-                val_avg_acc, val_avg_loss, val_avg_acc_score, val_avg_f1 = val_results
+            results, labels_vs_preds, step_results = eval_model(args, net, private_clients, train_loaders, val_loaders,
+                                                                GPs)
+            val_avg_loss, val_avg_acc = calc_metrics(results)
 
             if val_avg_acc > best_acc:
                 best_acc = val_avg_acc
                 best_loss = val_avg_loss
-                best_acc_score = val_avg_acc_score
-                best_f1 = val_avg_f1
                 best_epoch = step
                 best_model.cpu()
                 del best_model
                 best_model = copy.deepcopy(net)
 
-        if args.wandb:
-            log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss, val_acc_dict,
-                      val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
-                      val_loss_dict)
+        # if args.wandb:
+        #     log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss, val_acc_dict,
+        #               val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
+        #               val_loss_dict)
 
     # Test best model
-    test_results = eval_model(args, best_model, private_clients, test_loaders)
+    test_results, labels_vs_preds, step_results = eval_model(args, best_model, private_clients, train_loaders,
+                                                             test_loaders, GPs)
 
-    _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
+    test_avg_loss, test_avg_acc = calc_metrics(test_results)
 
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 

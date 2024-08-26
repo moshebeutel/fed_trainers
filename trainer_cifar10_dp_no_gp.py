@@ -1,11 +1,12 @@
 import argparse
+import inspect
 from pathlib import Path
 
 import torch
 import wandb
-from dataset import gen_random_loaders
-from trainer_sgd_dp_no_gp import train
-from utils import set_logger, set_seed, str2bool
+
+from common.utils import set_logger, set_seed, str2bool
+from datasets.dataset import gen_random_loaders
 
 
 def get_dataloaders(args):
@@ -17,6 +18,7 @@ def get_dataloaders(args):
         args.classes_per_client)
 
     return train_loaders, val_loaders, test_loaders
+
 
 if __name__ == '__main__':
 
@@ -36,7 +38,7 @@ if __name__ == '__main__':
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
@@ -72,15 +74,41 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=1, help="eval only after X selected epochs")
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
 
+    #############################
+    #       GP args             #
+    #############################
 
+
+    parser.add_argument('--use-gp', type=str2bool, default=True, help="use gaussian process as "
+                                                                       "personalization mechanism")
+    parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
+
+    parser.add_argument('--embed-dim', type=int, default=64)
+    parser.add_argument('--loss-scaler', default=1., type=float, help='multiplicative element to the loss function')
+    parser.add_argument('--kernel-function', type=str, default='RBFKernel',
+                        choices=['RBFKernel', 'LinearKernel', 'MaternKernel'],
+                        help='kernel function')
+    parser.add_argument('--objective', type=str, default='predictive_likelihood',
+                        choices=['predictive_likelihood', 'marginal_likelihood'])
+    parser.add_argument('--predict-ratio', type=float, default=0.5,
+                        help='ratio of samples to make predictions for when using predictive_likelihood objective')
+    parser.add_argument('--num-gibbs-steps-train', type=int, default=5, help='number of sampling iterations')
+    parser.add_argument('--num-gibbs-draws-train', type=int, default=20, help='number of parallel gibbs chains')
+    parser.add_argument('--num-gibbs-steps-test', type=int, default=5, help='number of sampling iterations')
+    parser.add_argument('--num-gibbs-draws-test', type=int, default=30, help='number of parallel gibbs chains')
+    parser.add_argument('--outputscale', type=float, default=8., help='output scale')
+    parser.add_argument('--lengthscale', type=float, default=1., help='length scale')
+    parser.add_argument('--outputscale-increase', type=str, default='constant',
+                        choices=['constant', 'increase', 'decrease'],
+                        help='output scale increase/decrease/constant along tree')
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
@@ -95,5 +123,19 @@ if __name__ == '__main__':
     if args.wandb:
         wandb.init(project="emg_gp_moshe", name=exp_name)
         wandb.config.update(args)
+
+    if args.use_gp:
+        from with_gp.trainers import trainer_sgd_dp_with_gp
+        trainers_module = trainer_sgd_dp_with_gp
+        logger.info(f"Using GP trainer: {trainers_module}")
+    else:
+        from no_gp.trainers import trainer_sgd_dp_no_gp
+        trainers_module = trainer_sgd_dp_no_gp
+        logger.info(f"Using non-GP trainer: {trainers_module}")
+
+    assert inspect.ismodule(trainers_module), f"trainers_module should be a module"
+    assert hasattr(trainers_module, 'train'), f"trainers_module should contain a train function"
+    train = getattr(trainers_module, 'train')
+    assert inspect.isfunction(train), f"trainers_module.train should be a function"
 
     train(args, get_dataloaders(args))
