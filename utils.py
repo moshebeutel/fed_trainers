@@ -387,10 +387,10 @@ def eval_model(args, global_model, client_ids, loaders):
 
             loss = criteria(pred, Y_test)
             predicted = torch.max(pred, dim=1)[1].cpu().numpy()
-
-            running_loss += (loss.item() * Y_test.size(0))
+            batch_size = Y_test.shape[0]
+            running_loss += (loss.item() * batch_size)
             running_correct += pred.argmax(1).eq(Y_test).sum().item()
-            running_samples += Y_test.size(0)
+            running_samples += batch_size
 
             target = Y_test.cpu().numpy().reshape(predicted.shape)
 

@@ -1,3 +1,6 @@
 [submodule "biolab_utilities"]
 	path = biolab_utilities
 	url = https://github.com/biolab-put/biolab_utilities.git
+[submodule "pFedGP"]
+	path = pFedGP
+	url = https://github.com/moshebeutel/pFedGP.git
