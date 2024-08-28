@@ -7,7 +7,7 @@ for data_name in ['cifar10']:
 
     print(f'@@@ *** %%% GEP_PRIVATE  {data_name} %%% *** @@@')
 
-    num_users = 50
+    num_users = 500
     # data_name = 'mnist'
     classes_per_client = 2 if data_name in ['cifar10', 'mnist'] else 20
     script_name = 'cifar10'
@@ -16,28 +16,29 @@ for data_name in ['cifar10']:
         num_users = 44
         classes_per_client = 8
 
-    for num_epochs in [30]:
+    for num_epochs in [3]:
     # for num_epochs in [3]:
         for num_clients in [num_users]:
             for num_client_agg in [5]:
                 for num_blocks in [3]:
                     for block_size in [1]:
-                        for sigma in [0.0, 4.72, 12.79, 25.0]:
+                        # for sigma in [2.016, 4.72, 12.79, 25.0]:
                         # for sigma in [4.72, 12.79, 25.0]:
+                        for sigma in [0.0, 2.016, 4.72, 12.79, 25.0]:
                         #     for optimizer in ['adam', 'sgd']:
                             for optimizer in ['adam']:
                                 for lr in [0.01]:
                                 # for lr in [0.01, 0.001]:
                                     for num_public_clients in [5]:
-                                        for history_size in [50]:
+                                        for history_size in [20]:
                                         # for history_size in [160]:
                                             # for basis_size in [25, 50]:
-                                            for basis_size in [0.2*history_size]:
-                                                clip_list = [5.0] if sigma == 0.0 else [0.01]
+                                            for basis_size in [10]:
+                                                clip_list = [5.0] if sigma == 0.0 else [0.001]
                                                 for grad_clip in clip_list:
                                                     # for grad_clip in [1.0, 0.1, 0.01]:
                                                     # for seed in [73, 74, 75]:
-                                                    for seed in [81, 82, 83, 84, 85, 86, 87, 88, 89]:
+                                                    for seed in [981, 982, 983, 984, 985]:
                                                         print(f'@@@ Run gep_no_gp SIGMA {sigma} lr {lr} '
                                                               f'grad_clip {grad_clip} optimizer {optimizer} '
                                                               f'history_size {history_size} basis_size {basis_size}  %%%')
@@ -62,5 +63,5 @@ for data_name in ['cifar10']:
                                                                         '--csv-name', f'{data_name}_gep_private.csv',
                                                                         '--eval-after', str(30),
                                                                         '--eval-every', str(10)
-                                                                        ]
-                                                                       )
+                                                                        ])
+                                                                       
