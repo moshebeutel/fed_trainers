@@ -132,14 +132,14 @@ if __name__ == '__main__':
         wandb.config.update(args)
 
     if args.use_gp:
-        from with_gp.trainers import trainer_gep_public_with_gp
+        from with_gp.trainers import trainer_gep_private_with_gp
 
-        trainers_module = trainer_gep_public_with_gp
+        trainers_module = trainer_gep_private_with_gp
         logger.info(f"Using GP trainer: {trainers_module}")
     else:
-        from no_gp.trainers import trainer_sgd_dp_no_gp
+        from no_gp.trainers import trainer_gep_private_no_gp
 
-        trainers_module = trainer_sgd_dp_no_gp
+        trainers_module = trainer_gep_private_no_gp
         logger.info(f"Using non-GP trainer: {trainers_module}")
 
     assert inspect.ismodule(trainers_module), f"trainers_module should be a module"
