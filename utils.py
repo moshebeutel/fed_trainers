@@ -462,6 +462,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
     csv_file_path = csv_path / args.csv_name
 
     new_row_dict = {
+        'timestamp': pd.Timestamp.now(),
         'data_name': args.data_name,
         'num-steps': args.num_steps,
         'optimizer': args.optimizer,
