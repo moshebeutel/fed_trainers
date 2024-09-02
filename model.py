@@ -299,16 +299,17 @@ def get_n_params(model: nn.Module):
 
 
 def get_model(args):
-    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10}[args.data_name]
-    in_channels = 1 if args.data_name == 'mnist' else 3
+    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10, 'femnist': 62}[args.data_name]
+    in_channels = 1 if args.data_name in ['mnist', 'femnist'] else 3
 
-    if args.data_name == 'cifar10' or args.data_name == 'cifar100' or args.data_name == 'mnist':
+    if args.data_name in ['cifar10', 'cifar100', 'mnist', 'femnist']:
 
-        model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+        assert args.model_name in ['CNNTarget', 'ResNet'], f'Unxpected model name {args.model_name}'
 
-        # model = ResNet(layers=[args.block_size] * args.num_blocks,
-        #                num_classes=num_classes,
-        #                in_channels=1 if args.data_name == 'mnist' else 3)
+        if args.model_name == 'CNNTarget':
+            model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+        else:
+            model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
     else:
         assert args.data_name == 'putEMG', 'data_name should be putEMG'
         assert num_classes == 8, 'num_classes should be 8'
