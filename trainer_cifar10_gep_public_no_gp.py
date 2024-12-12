@@ -23,7 +23,7 @@ def get_dataloaders(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="GEP Public CIFAR10/100 Federated Learning")
-    data_name = 'mnist'
+    data_name = 'cifar10'
     ##################################
     #       Network args        #
     ##################################

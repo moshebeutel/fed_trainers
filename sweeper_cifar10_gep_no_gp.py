@@ -3,7 +3,7 @@ import subprocess
 
 
 # for data_name in ['putEMG', 'cifar10', 'mnist']:
-for data_name in ['mnist']:
+for data_name in ['putEMG']:
 
     print(f'@@@ *** %%% GEP_PRIVATE  {data_name} %%% *** @@@')
 
@@ -37,7 +37,7 @@ for data_name in ['mnist']:
                                                 for grad_clip in clip_list:
                                                     # for grad_clip in [1.0, 0.1, 0.01]:
                                                     # for seed in [73, 74, 75]:
-                                                    for seed in [981, 982]:
+                                                    for seed in [981, 982, 983, 984, 985]:
                                                         print(f'@@@ Run gep_no_gp SIGMA {sigma} lr {lr} '
                                                               f'grad_clip {grad_clip} optimizer {optimizer} '
                                                               f'history_size {history_size} basis_size {basis_size}  %%%')

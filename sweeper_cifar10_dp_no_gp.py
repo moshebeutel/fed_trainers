@@ -3,7 +3,7 @@ import subprocess
 
 
 # for data_name in ['putEMG', 'cifar10', 'mnist']:
-for data_name in ['mnist']:
+for data_name in ['putEMG']:
 
     print(f'@@@ *** %%% SGD_DP  {data_name} %%% *** @@@')
 
@@ -19,7 +19,7 @@ for data_name in ['mnist']:
     for num_epochs in [3]:
     # for num_epochs in [3]:
         for num_clients in [num_users]:
-            for num_client_agg in [10]:
+            for num_client_agg in [5]:
                 for num_blocks in [3]:
                     for block_size in [1]:
                         # for sigma in [0.0, 12.79]:
@@ -33,7 +33,7 @@ for data_name in ['mnist']:
                                     # for grad_clip in [1.0, 0.1, 0.01]:
                                     for grad_clip in clip_list:
                                         # for seed in [43, 44, 45]:
-                                        for seed in [981, 982]:
+                                        for seed in [981, 982, 983, 984, 985]:
                                             print(f'@@@ Run sgd_dp SIGMA {sigma} lr {lr} '
                                                   f'grad_clip {grad_clip} optimizer {optimizer} %%%')
                                             sample_prob = float(num_clients) / float(num_client_agg)
