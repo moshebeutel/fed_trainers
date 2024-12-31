@@ -82,7 +82,7 @@ def train(args, dataloaders):
         aggregated_grads = noised_grads.mean(dim=0)
 
         # update global net
-        net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params)
+        net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, args.global_lr)
 
         # Evaluate model
         if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:

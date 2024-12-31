@@ -518,12 +518,12 @@ def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, tr
 
 
 @torch.no_grad()
-def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params):
+def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr):
     # update old parameters using private aggregated grads
     params = {}
     offset = 0
     for n, p in prev_params.items():
-        params[n] = p + aggregated_grads[offset: offset + p.numel()].reshape(p.shape)
+        params[n] = p + global_lr * aggregated_grads[offset: offset + p.numel()].reshape(p.shape)
         offset += p.numel()
     # update new parameters of global net
     net.load_state_dict(params)

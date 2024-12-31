@@ -114,7 +114,7 @@ def train(args, dataloaders):
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
         # update old parameters using private aggregated grads
-        net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params)
+        net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, args.global_lr)
 
 
         if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:
