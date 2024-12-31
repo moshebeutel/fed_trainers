@@ -21,7 +21,7 @@ def get_dataloaders(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
-    data_name = 'mnist'
+    data_name = 'cifar10'
     ##################################
     #       Network args        #
     ##################################
@@ -31,16 +31,15 @@ if __name__ == '__main__':
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=30)
+    parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--inner-steps", type=int, default=5, help="number of inner steps")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
+    parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
 
     #############################
@@ -53,6 +52,15 @@ if __name__ == '__main__':
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
+    parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
+    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
+    parser.add_argument("--log-every", type=int, default=1, help="log every X selected epochs")
+
+    parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
+    parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
+    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
 
     #############################
     #       Dataset Args        #
@@ -63,23 +71,16 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=50, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=50, help="number of private clients")
-    parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
+
+    #############################
+    #       Clients Args        #
+    #############################
+
+    parser.add_argument("--num-clients", type=int, default=500, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=490, help="number of private clients")
+    parser.add_argument("--num-public-clients", type=int, default=10, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
-
-    #############################
-    #       General args        #
-    #############################
-    parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
-
-    parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
-    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
-
+    parser.add_argument("--num-client-agg", type=int, default=100, help="number of clients per step")
 
     args = parser.parse_args()
 
