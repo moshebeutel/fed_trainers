@@ -270,11 +270,15 @@ def get_n_params(model: nn.Module):
 
 
 def get_model(args):
-    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10}[args.data_name]
+    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10, 'keypressemg': 26}[args.data_name]
     if args.data_name == 'cifar10' or args.data_name == 'cifar100' or args.data_name == 'mnist':
         model = ResNet(layers=[args.block_size] * args.num_blocks,
                        num_classes=num_classes,
                        in_channels=1 if args.data_name == 'mnist' else 3)
+    elif args.data_name == 'keypressemg':
+        assert num_classes == 26, 'num_classes should be 26'
+        from keypressemg.models.feature_model import FeatureModel
+        model = FeatureModel(depth_power=args.depth_power)
     else:
         assert args.data_name == 'putEMG', 'data_name should be putEMG'
         assert num_classes == 8, 'num_classes should be 8'
