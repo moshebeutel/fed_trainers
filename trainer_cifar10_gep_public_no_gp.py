@@ -42,8 +42,12 @@ if __name__ == '__main__':
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=1.0, help="dp noise factor "
-                                                                            "to be multiplied by clip")
+    parser.add_argument("--clip_residual", type=float, default=0.1, help="residual clip")
+    parser.add_argument("--noise-multiplier", type=float, default=1.0, help="gradient dp noise factor"
+                                                                            " to be multiplied by clip")
+    parser.add_argument("--noise-multiplier-residual", type=float, default=1.0, help="residual part "
+                                                                                     "dp noise factor"
+                                                                                     " to be multiplied by clip")
 
     ##################################
     #       GEP args                 #
