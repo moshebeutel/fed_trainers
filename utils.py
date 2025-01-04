@@ -436,6 +436,12 @@ def flatten_tensor(tensor_list) -> torch.Tensor:
 
 
 def get_clients(args):
+
+    if args.data_name == 'keypressemg':
+        import keypressemg_utils
+        return keypressemg_utils.get_clients(args)
+
+
     num_clients = args.num_clients
     num_private_clients = args.num_private_clients
     num_public_clients = args.num_public_clients
