@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
