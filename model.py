@@ -278,7 +278,7 @@ def get_model(args):
     elif args.data_name == 'keypressemg':
         assert num_classes == 26, 'num_classes should be 26'
         from keypressemg.models.feature_model import FeatureModel
-        model = FeatureModel(depth_power=args.depth_power)
+        model = FeatureModel(depth_power=args.depth_power, cls_layer=True)
     else:
         assert args.data_name == 'putEMG', 'data_name should be putEMG'
         assert num_classes == 8, 'num_classes should be 8'

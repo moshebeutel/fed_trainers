@@ -26,6 +26,7 @@ def train(args, dataloaders):
     best_model = copy.deepcopy(net)
 
     basis_gradients: Optional[torch.Tensor] = None
+    basis_gradients_cpu: Optional[torch.Tensor] = None
 
     train_loaders, val_loaders, test_loaders = dataloaders
 
@@ -90,9 +91,9 @@ def train(args, dataloaders):
         noised_grads = grads_flattened_clipped + noise
 
         # update subspace using private grads
-        basis_gradients = add_new_gradients_to_history(noised_grads, basis_gradients, args.gradients_history_size)
+        basis_gradients, basis_gradients_cpu, filled_history_size  = add_new_gradients_to_history(noised_grads, basis_gradients, basis_gradients_cpu, args.gradients_history_size)
 
-        pca = compute_subspace(basis_gradients, args.basis_size)
+        pca = compute_subspace(basis_gradients[:filled_history_size], args.basis_size, device)
 
         # project grads to subspace
         embedded_grads = embed_grad(noised_grads, pca).to(device)
