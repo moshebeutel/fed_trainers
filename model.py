@@ -248,6 +248,35 @@ class MLPTarget(nn.Module):
         return x
 
 
+class CNNTarget(nn.Module):
+    def __init__(self, in_channels=3, n_kernels=16, embedding_dim=84, num_classes=10, use_cls_layer=False, use_softmax=False):
+        super(CNNTarget, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels, n_kernels, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(n_kernels, 2 * n_kernels, 5)
+        representation_size = (32 if in_channels == 1 else 50) * n_kernels
+        self.fc1 = nn.Linear(representation_size, 120)
+        self.fc2 = nn.Linear(120, 84)
+
+        self.embed_dim = nn.Linear(84, embedding_dim)
+        self.fc3 = nn.Linear(embedding_dim, num_classes)
+        assert use_cls_layer or (not use_softmax), f'Cannot use softmax on representation layer'
+        self._use_cls_layer = use_cls_layer
+        self._use_softmax = use_softmax
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(x.shape[0], -1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.embed_dim(x)
+        x = F.relu(self.fc3(x)) if self._use_cls_layer else x
+        x = F.softmax(self.fc3(x), dim=1) if self._use_softmax else x
+        return x
+
+
 def initialize_weights(module: nn.Module):
     for m in module.modules():
 
@@ -270,13 +299,21 @@ def get_n_params(model: nn.Module):
 
 
 def get_model(args):
-    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10, 'keypressemg': 26}[args.data_name]
-    if args.data_name == 'cifar10' or args.data_name == 'cifar100' or args.data_name == 'mnist':
-        model = ResNet(layers=[args.block_size] * args.num_blocks,
-                       num_classes=num_classes,
-                       in_channels=1 if args.data_name == 'mnist' else 3)
+    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10, 'femnist': 62}[args.data_name]
+    in_channels = 1 if args.data_name in ['mnist', 'femnist'] else 3
+
+    if args.data_name in ['cifar10', 'cifar100', 'mnist', 'femnist']:
+
+        assert args.model_name in ['CNNTarget', 'ResNet'], f'Unxpected model name {args.model_name}'
+
+        if args.model_name == 'CNNTarget':
+            model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+        else:
+            model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
+
     elif args.data_name == 'keypressemg':
         assert num_classes == 26, 'num_classes should be 26'
+        import keypressemg
         from keypressemg.models.feature_model import FeatureModel
         model = FeatureModel(depth_power=args.depth_power, cls_layer=True)
     else:

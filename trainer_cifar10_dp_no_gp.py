@@ -27,6 +27,10 @@ if __name__ == '__main__':
     ##################################
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
+    parser.add_argument("--model-name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
+    parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
+    parser.add_argument('--embed-dim', type=int, default=64)
+    parser.add_argument('--use-gp', type=str2bool, default=False)
 
     ##################################
     #       Optimization args        #
@@ -88,7 +92,7 @@ if __name__ == '__main__':
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
     logger = set_logger(args)
-    logger.info(f"Args: {args}")
+    logger.debug(f"Args: {args}")
     set_seed(args.seed)
 
     exp_name = f'SGD-DP_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
