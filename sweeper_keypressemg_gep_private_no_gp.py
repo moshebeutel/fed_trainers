@@ -7,14 +7,15 @@ from sweep_utils import sweep
 from utils import set_logger, str2bool
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(description="Sweep GEP Private Federated Learning Toronto Surface EMG Typing Database")
+    parser = argparse.ArgumentParser(
+        description="Sweep GEP Private Federated Learning Toronto Surface EMG Typing Database")
     num_users = get_num_users()
     ##################################
     #       Network args        #
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
-
+    parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
+    parser.add_argument("--num-features", type=int, default=176, help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -76,10 +77,10 @@ if __name__ == '__main__':
 
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_private", help="dir path for logger file")
+    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_private",
+                        help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="keypressemg_gep_private.csv", help="dir path for csv file")
-
 
     args = parser.parse_args()
 
@@ -94,13 +95,13 @@ if __name__ == '__main__':
         "metric": {"goal": "maximize", "name": "eval_acc"},
         "parameters": {
             "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9, 0.5]},
-            "seed": {"values": [43]},
-            "clip": {"values": [1.0, 0.1]},
-            "noise_multiplier": {"values": [0.1, 0.0]},
-            # "inner_steps": {"values": [10]},
+            "global_lr": {"values": [0.9]},
+            "seed": {"values": [40]},
+            "clip": {"values": [0.1]},
+            "noise_multiplier": {"values": [0.1]},
+            "inner_steps": {"values": [5]},
             # "wd": {"values": [0.0001]},
-            # "num_steps": {"values": [1000]},
+            "num_steps": {"values": [1000]},
             # "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1, 2]}
         },

@@ -299,7 +299,7 @@ def get_n_params(model: nn.Module):
 
 
 def get_model(args):
-    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10, 'femnist': 62}[args.data_name]
+    num_classes = {'cifar10': 10, 'cifar100': 100, 'putEMG': 8, 'mnist': 10, 'femnist': 62, 'keypressemg': 26}[args.data_name]
     in_channels = 1 if args.data_name in ['mnist', 'femnist'] else 3
 
     if args.data_name in ['cifar10', 'cifar100', 'mnist', 'femnist']:
@@ -315,7 +315,7 @@ def get_model(args):
         assert num_classes == 26, 'num_classes should be 26'
         import keypressemg
         from keypressemg.models.feature_model import FeatureModel
-        model = FeatureModel(depth_power=args.depth_power, cls_layer=True)
+        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True, depth_power=args.depth_power)
     else:
         assert args.data_name == 'putEMG', 'data_name should be putEMG'
         assert num_classes == 8, 'num_classes should be 8'

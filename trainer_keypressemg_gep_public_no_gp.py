@@ -18,7 +18,8 @@ if __name__ == '__main__':
     #       Network args        #
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
-
+    parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
+    parser.add_argument("--num-features", type=int, default=176, help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #

@@ -14,6 +14,8 @@ if __name__ == '__main__':
     #       Network args        #
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
+    parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
+    parser.add_argument("--num-features", type=int, default=176, help="Number of extracted features (model input size)")
 
 
     ##################################
@@ -89,16 +91,20 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": "sweep_FedAvg_between_days_key_press_emg",
+        "name": "sgd_dp_keypressemg",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "eval_acc"},
         "parameters": {
-            "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9, 0.5]},
-            "seed": {"values": [43]},
-            "clip": {"values": [1.0, 0.1]},
-            "noise_multiplier": {"values": [0.1, 0.0]},
-            # "inner_steps": {"values": [10]},
+            "lr": {"values": [0.001]},
+            # "lr": {"values": [0.001, 0.01]},
+            "global_lr": {"values": [0.9]},
+            # "global_lr": {"values": [0.9, 0.5]},
+            "seed": {"values": [40]},
+            "clip": {"values": [0.1]},
+            "noise_multiplier": {"values": [0.1]},
+            "inner_steps": {"values": [5]},
+            # "wd": {"values": [0.0001]},
+            "num_steps": {"values": [1000]},
             # "wd": {"values": [0.0001]},
             # "num_steps": {"values": [1000]},
             # "num_client_agg": {"values": [5]},
