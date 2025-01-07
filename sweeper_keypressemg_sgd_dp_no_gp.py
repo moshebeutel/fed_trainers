@@ -89,20 +89,20 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": "sweep_FedAvg_between_days_key_press_emg",
+        "name": "sgd_dp_keypressemg",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "eval_acc"},
         "parameters": {
-            "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9, 0.5]},
-            "seed": {"values": [43]},
+            "lr": {"values": [0.001]},
+            "global_lr": {"values": [0.1]},
+            "seed": {"values": [42]},
             "clip": {"values": [1.0, 0.1]},
             "noise_multiplier": {"values": [0.1, 0.0]},
             # "inner_steps": {"values": [10]},
             # "wd": {"values": [0.0001]},
-            # "num_steps": {"values": [1000]},
+            "num_steps": {"values": [250]},
             # "num_client_agg": {"values": [5]},
-            "depth_power": {"values": [1, 2]}
+            "depth_power": {"values": [3]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,
