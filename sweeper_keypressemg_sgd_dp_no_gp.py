@@ -106,7 +106,6 @@ if __name__ == '__main__':
             # "wd": {"values": [0.0001]},
             "num_steps": {"values": [1000]},
             # "wd": {"values": [0.0001]},
-            # "num_steps": {"values": [1000]},
             # "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1, 2]}
         },

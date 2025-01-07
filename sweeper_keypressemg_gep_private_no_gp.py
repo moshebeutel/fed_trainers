@@ -90,7 +90,7 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": "sweep_FedAvg_between_days_key_press_emg",
+        "name": "gep_private_keypressemg",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "eval_acc"},
         "parameters": {
