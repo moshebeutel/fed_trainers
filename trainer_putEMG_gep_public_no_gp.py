@@ -2,19 +2,26 @@ import argparse
 from pathlib import Path
 import torch
 import wandb
-from emg_utils import get_dataloaders
-from trainer_gep_public_no_gp import train
+from emg_utils import get_dataloaders, get_num_users
+import trainer_gep_public_no_gp
 from utils import set_logger, set_seed, str2bool
+
+def train(args):
+    trainer_gep_public_no_gp.train(args, get_dataloaders(args))
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="GEP Public putEMG Federated Learning")
-
+    num_users = get_num_users()
     ##################################
     #       Network args        #
     ##################################
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
+
+    parser.add_argument("--depth_power", type=int, default=1)
+    parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
+    parser.add_argument("--num-features", type=int, default=888, help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -25,10 +32,11 @@ if __name__ == '__main__':
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=0.1, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=1.0, help="dp noise factor "
+    parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
+    parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
 
     ##################################
@@ -58,19 +66,21 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data-path", type=str,
-                        default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
-                        help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=23, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=18, help="number of private clients")
+                       default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
+                       # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
+                       # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
+                       help="dir path for dataset")
+    parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
+    parser.add_argument("--num-private-clients", type=int, default=num_users-5, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=5, help="number of public clients")
-    parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
+    parser.add_argument("--classes-per-client", type=int, default=8, help="number of simulated clients")
 
     #############################
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=4, help="eval only after X selected epochs")
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="gep_public_emg", help="dir path for logger file")
@@ -93,4 +103,4 @@ if __name__ == '__main__':
         wandb.init(project="key_press_emg_toronto", name=exp_name)
         wandb.config.update(args)
 
-    train(args, get_dataloaders(args))
+    train(args)
