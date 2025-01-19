@@ -95,12 +95,12 @@ if __name__ == '__main__':
         "metric": {"goal": "maximize", "name": "eval_acc"},
         "parameters": {
             "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9]},
-            "seed": {"values": [40]},
+            "global_lr": {"values": [0.9, 0.1]},
+            "seed": {"values": [50]},
             "clip": {"values": [0.1]},
             "noise_multiplier": {"values": [0.1]},
-            "inner_steps": {"values": [5]},
-            # "wd": {"values": [0.0001]},
+            "inner_steps": {"values": [5, 20]},
+            "wd": {"values": [0.0001, 0.001]},
             "num_steps": {"values": [1000]},
             # "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1, 2]}

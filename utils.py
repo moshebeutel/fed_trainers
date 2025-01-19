@@ -39,8 +39,9 @@ def set_seed(seed, cudnn_enabled=True):
 
 def set_logger(args):
     logger = logging.getLogger(args.log_name)
+    logger.setLevel(args.log_level)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger.setLevel(logging.INFO)
+    logger.setLevel(args.log_level)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
@@ -49,7 +50,7 @@ def set_logger(args):
     log_dir = Path(args.log_dir)
     log_dir.mkdir(exist_ok=True)
     file_handler = logging.FileHandler(log_dir / f'{args.log_name}_{time.asctime()}.log')
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(args.log_level)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     return logger
@@ -530,8 +531,9 @@ def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, glob
     params = {}
     offset = 0
     for n, p in prev_params.items():
-        params[n] = p + global_lr * aggregated_grads[offset: offset + p.numel()].reshape(p.shape)
-        offset += p.numel()
+        num_layer_elements = p.numel()
+        params[n] = p + global_lr * aggregated_grads[offset: offset + num_layer_elements].reshape(p.shape)
+        offset += num_layer_elements
     # update new parameters of global net
     net.load_state_dict(params)
     return net

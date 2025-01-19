@@ -1,4 +1,5 @@
 import argparse
+import logging
 from pathlib import Path
 import torch
 import trainer_putEMG_gep_public_no_gp
@@ -38,7 +39,7 @@ if __name__ == '__main__':
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp-name", type=str, default='Sweep_GEP_private_keypressemg', help="suffix for exp name")
+    parser.add_argument("--exp-name", type=str, default='Sweep_GEP_PUBLIC_putEMG', help="suffix for exp name")
     parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -78,7 +79,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_private",
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
+    parser.add_argument("--log-name", type=str, default="Sweep_GEP_PUBLIC_putEMG",
                         help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="putemg_gep_public.csv", help="dir path for csv file")
@@ -91,21 +93,26 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": "gep_public_putEMG",
+        "name": f"gep_public_putEMG_{args.num_features}_{args.seed}",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "eval_acc"},
+        "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
-            "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9, 0.1]},
-            "seed": {"values": [50]},
-            "clip": {"values": [10.0, 0.1]},
+            "lr": {"values": [0.01]},
+            # "lr": {"values": [0.001, 0.01]},
+            "global_lr": {"values": [0.999]},
+            # "global_lr": {"values": [0.9, 0.1]},
+            "seed": {"values": [args.seed]},
+            # "clip": {"values": [1.0]},
+            "clip": {"values": [10.0, 0.01]},
             "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
-            "inner_steps": {"values": [1.0, 10.0]},
-            "basis-size": {"values": [10, 40]},
-            "gradients-history-size": {"values": [40, 100]},
-            "wd": {"values": [0.0001, 0.001]},
+            "inner_steps": {"values": [10.0]},
+            # "inner_steps": {"values": [1.0, 10.0]},
+            "basis-size": {"values": [10]},
+            "gradients-history-size": {"values": [20]},
+            "wd": {"values": [0.0001]},
+            # "wd": {"values": [0.0001, 0.001]},
             "num_steps": {"values": [50]},
-            "num_client_agg": {"values": [5]},
+            "num_client_agg": {"values": [num_users]},
             "depth_power": {"values": [1]}
         },
     }

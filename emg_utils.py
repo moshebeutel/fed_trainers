@@ -7,9 +7,17 @@ import torch
 
 
 def get_user_list():
-    return ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+    return ['03', '04', '05', '06', '07', '08', '09', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
             '22', '23', '24', '25', '26', '27', '29', '30', '31', '33', '34', '35', '36', '38', '39', '42', '43', '45',
             '46', '47', '48', '49', '50', '51', '53', '54']
+
+    # return ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+    #         '22', '23', '24', '25', '26', '27', '29', '30', '31', '33', '34', '35', '36', '38', '39', '42', '43', '45',
+    #         '46', '47', '48', '49', '50', '51', '53', '54']
+
+
+def get_num_users():
+    return len(get_user_list())
 
 
 def get_dataloaders(args):
@@ -27,8 +35,10 @@ def get_dataloaders(args):
         calculated_features_folder.glob('*.hdf5'))) > 0, f'{calculated_features_folder} does not contain hdf5 files'
 
     # list all hdf5 files in given input folder
-    all_files = [f.as_posix().replace('_filtered_features', '')
-                 for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
+    # all_files = [f.as_posix().replace('_filtered_features', '')
+    #              for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
+    all_files = [f.as_posix().replace('_filtered', '')
+                 for f in sorted(calculated_features_folder.glob("*_filtered.hdf5"))]
 
     users_files = []
     users = get_user_list()
@@ -61,12 +71,53 @@ def get_dataloaders(args):
     for r in records_filtered_by_subject:
         # print("Reading features for input file: ", r)
         filename = os.path.splitext(r.path)[0]
-        dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
-                                                       filename + '_filtered_features.hdf5')))
+        dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder, filename + '_filtered.hdf5')))
+
+        # dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
+        #                                                filename + '_filtered_features.hdf5')))
 
     logger.debug(f'Found {len(dfs)} dataframes')
 
-    features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP']
+    features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP'] if args.num_features == 8 * 24 else ["IAV",
+                                                                                                            "AAC",
+                                                                                                            "AR",
+                                                                                                            "CC",
+                                                                                                            "DASDV",
+                                                                                                            "Kurt",
+                                                                                                            "LOG",
+                                                                                                            "MAV1",
+                                                                                                            "MAV2",
+                                                                                                            "MAVSLP",
+                                                                                                            "MHW",
+                                                                                                            "MTW",
+                                                                                                            "MYOP",
+                                                                                                            'RMS',
+                                                                                                            'MAV',
+                                                                                                            'WL',
+                                                                                                            'ZC',
+                                                                                                            'SSC',
+                                                                                                            'VAR',
+                                                                                                            'WAMP',
+                                                                                                            "Skew",
+                                                                                                            "SSI",
+                                                                                                            "TM",
+                                                                                                            "V",
+                                                                                                            "MNF",
+                                                                                                            "MDF",
+                                                                                                            "PKF",
+                                                                                                            "MNP",
+                                                                                                            "TTP",
+                                                                                                            "FR",
+                                                                                                            "VCF",
+                                                                                                            "PSR",
+                                                                                                            "SNR",
+                                                                                                            "DPR",
+                                                                                                            "OHM",
+                                                                                                            "MAX",
+                                                                                                            "SMR"]
+
+    assert (len(features) * 24) == args.num_features, f'Expected num features: {len(features) * 24}. Do not match args'
+
     # defines gestures to be used in shallow learn
     gestures = {
         0: "Idle",

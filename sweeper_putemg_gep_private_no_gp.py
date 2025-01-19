@@ -91,18 +91,18 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": "gep_private_putEMG",
+        "name": f"gep_private_putEMG_{args.num_features}_{args.seed}",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "eval_acc"},
+        "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
             "lr": {"values": [0.001, 0.01]},
             "global_lr": {"values": [0.9, 0.1]},
-            "seed": {"values": [50]},
-            "clip": {"values": [0.1]},
+            "seed": {"values": [args.seed]},
+            "clip": {"values": [10, 0.1]},
             "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
             "inner_steps": {"values": [1.0, 10.0]},
-            "basis-size": {"values": [10, 40]},
-            "gradients-history-size": {"values": [40, 100]},
+            "basis-size": {"values": [15]},
+            "gradients-history-size": {"values": [45]},
             "wd": {"values": [0.0001, 0.001]},
             "num_steps": {"values": [50]},
             "num_client_agg": {"values": [5]},

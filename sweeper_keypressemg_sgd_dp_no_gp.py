@@ -1,4 +1,5 @@
 import argparse
+import logging
 from pathlib import Path
 import torch
 import trainer_keypressemg_sgd_dp_no_gp
@@ -15,7 +16,7 @@ if __name__ == '__main__':
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=176, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=320, help="Number of extracted features (model input size)")
 
 
     ##################################
@@ -61,12 +62,13 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG', 'keypressemg'], help="Name of the dataset"
     )
     parser.add_argument("--data-path", type=str,
-                        default=(Path.cwd() / 'data/keypressemg_toronto/valid_user_features').as_posix(),
+                        default='./data/EMG/keypressemg/CleanData/valid_features_long_npy',
+                        # default=(Path.cwd() / 'data/keypressemg_toronto/valid_user_features').as_posix(),
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=num_users-5, help="number of private clients")
-    parser.add_argument("--num_public_clients", type=int, default=5, help="number of public clients")
+    parser.add_argument("--num-private-clients", type=int, default=num_users, help="number of private clients")
+    parser.add_argument("--num_public_clients", type=int, default=0, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=26, help="number of classes each client experience")
 
     #############################
@@ -79,6 +81,7 @@ if __name__ == '__main__':
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sweep_keypressemg_sgd_dp", help="dir path for logger file")
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="keypressemg_sgd_dp.csv", help="dir path for csv file")
 
@@ -91,23 +94,22 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": "sgd_dp_keypressemg",
+        "name": f"sgd_dp_keypressemg_{args.num_features}_{args.seed}",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "eval_acc"},
+        "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
-            "lr": {"values": [0.001]},
+            "lr": {"values": [0.1]},
             # "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9]},
+            "global_lr": {"values": [0.9, 0.1]},
             # "global_lr": {"values": [0.9, 0.5]},
-            "seed": {"values": [40]},
-            "clip": {"values": [0.1]},
-            "noise_multiplier": {"values": [0.1]},
-            "inner_steps": {"values": [5]},
-            # "wd": {"values": [0.0001]},
+            "seed": {"values": [50]},
+            "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
+            "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
+            "inner_steps": {"values": [5, 20]},
             "num_steps": {"values": [1000]},
-            # "wd": {"values": [0.0001]},
+            "wd": {"values": [0.0001, 0.001]},
             # "num_client_agg": {"values": [5]},
-            "depth_power": {"values": [1, 2]}
+            "depth_power": {"values": [1]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,

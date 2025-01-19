@@ -1,4 +1,5 @@
 import argparse
+import logging
 from pathlib import Path
 import torch
 import wandb
@@ -28,17 +29,17 @@ if __name__ == '__main__':
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=30)
+    parser.add_argument("--num-steps", type=int, default=100)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
-    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.1, help="server learning rate")
-    parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
+    parser.add_argument("--num-client-agg", type=int, default=num_users, help="number of clients per step")
+    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=0.999, help="server learning rate")
+    parser.add_argument("--wd", type=float, default=0.5, help="weight decay")
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=3.0, help="dp noise factor "
+    parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
 
     #############################
@@ -49,8 +50,8 @@ if __name__ == '__main__':
     parser.add_argument("--exp-name", type=str, default='', help="suffix for exp name")
     parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
                         help="dir path for saved models")
-    parser.add_argument("--seed", type=int, default=42, help="seed value")
-    parser.add_argument('--wandb', type=str2bool, default=False)
+    parser.add_argument("--seed", type=int, default=51, help="seed value")
+    parser.add_argument('--wandb', type=str2bool, default=True)
 
     #############################
     #       Dataset Args        #
@@ -58,7 +59,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         "--data-name", type=str, default="putEMG",
-        choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
+        choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for putEMG dataset"
     )
     parser.add_argument("--data-path", type=str,
                         default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
@@ -78,9 +79,10 @@ if __name__ == '__main__':
     parser.add_argument("--eval-after", type=int, default=4, help="eval only after X selected epochs")
 
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sgd_dp_emg", help="dir path for logger file")
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
+    parser.add_argument("--log-name", type=str, default="SGD_DP_putEMG", help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="emg_sgd_dp.csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default="putemg_sgd_dp.csv", help="dir path for csv file")
 
 
     args = parser.parse_args()
@@ -89,6 +91,7 @@ if __name__ == '__main__':
 
     logger = set_logger(args)
     logger.info(f"Args: {args}")
+    logger.debug('Debug Logger Set')
     set_seed(args.seed)
 
     exp_name = f'SGD-DP_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'

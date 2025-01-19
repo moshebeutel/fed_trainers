@@ -319,7 +319,11 @@ def get_model(args):
     else:
         assert args.data_name == 'putEMG', 'data_name should be putEMG'
         assert num_classes == 8, 'num_classes should be 8'
-        model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
+        import keypressemg
+        from keypressemg.models.feature_model import FeatureModel
+        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
+                             depth_power=args.depth_power)
+        # model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
 
     initialize_weights(model)
     return model

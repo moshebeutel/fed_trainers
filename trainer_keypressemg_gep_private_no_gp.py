@@ -1,4 +1,5 @@
 import argparse
+import logging
 from pathlib import Path
 import torch
 import wandb
@@ -82,6 +83,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="log filter")
+
     parser.add_argument("--log-name", type=str, default="sgd_dp_emg", help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="keypressemg_sgd_dp.csv", help="dir path for csv file")
