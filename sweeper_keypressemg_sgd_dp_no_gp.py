@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument("--exp-name", type=str, default='Sweep_GEP_public_keypressemg', help="suffix for exp name")
     parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
                         help="dir path for saved models")
-    parser.add_argument("--seed", type=int, default=42, help="seed value")
+    parser.add_argument("--seed", type=int, default=52, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=True)
 
     ##################################
@@ -99,16 +99,14 @@ if __name__ == '__main__':
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
             "lr": {"values": [0.1]},
-            # "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9, 0.1]},
-            # "global_lr": {"values": [0.9, 0.5]},
-            "seed": {"values": [50]},
+            "global_lr": {"values": [0.999, 0.5]},
+            "seed": {"values": [args.seed]},
             "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
             "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
-            "inner_steps": {"values": [5, 20]},
-            "num_steps": {"values": [1000]},
+            "inner_steps": {"values": [1]},
+            "num_steps": {"values": [100]},
             "wd": {"values": [0.0001, 0.001]},
-            # "num_client_agg": {"values": [5]},
+            "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1]}
         },
     }

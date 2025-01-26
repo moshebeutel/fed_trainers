@@ -16,7 +16,7 @@ if __name__ == '__main__':
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=888, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=480, help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -61,7 +61,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
     )
     parser.add_argument("--data-path", type=str,
-                        default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
+                        default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
@@ -97,22 +98,18 @@ if __name__ == '__main__':
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
-            "lr": {"values": [0.01]},
-            # "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.999]},
-            # "global_lr": {"values": [0.9, 0.1]},
+            "lr": {"values": [0.1]},
+            "global_lr": {"values": [0.999, 0.5]},
             "seed": {"values": [args.seed]},
-            # "clip": {"values": [1.0]},
-            "clip": {"values": [10.0, 0.01]},
+            "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
             "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
-            "inner_steps": {"values": [10.0]},
-            # "inner_steps": {"values": [1.0, 10.0]},
-            "basis-size": {"values": [10]},
+            "inner_steps": {"values": [1]},
+            "basis-size": {"values": [19]},
             "gradients-history-size": {"values": [20]},
-            "wd": {"values": [0.0001]},
-            # "wd": {"values": [0.0001, 0.001]},
-            "num_steps": {"values": [50]},
-            "num_client_agg": {"values": [num_users]},
+            "num_public_clients": {"values": [5]},
+            "wd": {"values": [0.0001, 0.001]},
+            "num_steps": {"values": [100]},
+            "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1]}
         },
     }

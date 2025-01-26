@@ -10,6 +10,7 @@ from keypressemg_utils import get_num_users, get_dataloaders
 
 
 def train(args):
+    set_seed(args.seed)
     trainer_sgd_dp_no_gp.train(args, get_dataloaders(args))
 
 if __name__ == '__main__':
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=1000)
+    parser.add_argument("--num-steps", type=int, default=200)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
@@ -89,7 +90,6 @@ if __name__ == '__main__':
 
     logger = set_logger(args)
     logger.info(f"Args: {args}")
-    set_seed(args.seed)
 
     exp_name = f'SGD-DP_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 

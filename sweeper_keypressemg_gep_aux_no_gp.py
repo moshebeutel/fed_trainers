@@ -2,7 +2,7 @@ import argparse
 import logging
 from pathlib import Path
 import torch
-import trainer_keypressemg_gep_public_no_gp
+import trainer_keypressemg_gep_aux_no_gp
 from keypressemg_utils import get_num_users
 from sweep_utils import sweep
 from utils import set_logger, str2bool
@@ -17,7 +17,8 @@ if __name__ == '__main__':
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
     parser.add_argument("--num-features", type=int, default=320, help="Number of extracted features (model input size)")
-
+    parser.add_argument("--aux-num-features", type=int, default=480, help="Number of extracted features "
+                                                                          "at auxiliary dataset")
     ##################################
     #       Optimization args        #
     ##################################
@@ -25,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--aux-batch-size", type=int, default=512)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
@@ -65,6 +67,9 @@ if __name__ == '__main__':
                         # default=(Path.cwd() / 'data/valid_user_features').as_posix(),
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
+    parser.add_argument("--aux-data-path", type=str,
+                        default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        help="dir path for auxiliary dataset")
     parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
     parser.add_argument("--num-private-clients", type=int, default=num_users-5, help="number of private clients")
     parser.add_argument("--num_public_clients", type=int, default=5, help="number of public clients")
@@ -93,24 +98,28 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"gep_public_keypressemg_{args.num_features}_{args.seed}",
+        "name": f"gep_aux_keypressemg_{args.num_features}_{args.seed}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
-            "lr": {"values": [0.1]},
-            "global_lr": {"values": [0.999, 0.5]},
+            "lr": {"values": [1.0, 0.5]},
+            "global_lr": {"values": [1.0]},
+            # "global_lr": {"values": [0.999, 0.5]},
             "seed": {"values": [args.seed]},
-            "basis-size": {"values": [19]},
-            "gradients-history-size": {"values": [20]},
-            "num_public_clients": {"values": [5]},
-            "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
-            "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
+            "basis-size": {"values": [5, 50]},
+            # "basis-size": {"values": [44]},
+            "gradients-history-size": {"values": [44 * 2, 44 * 4]},
+            "num_public_clients": {"values": [0]},
+            "clip": {"values": [10.0]},
+            # "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
+            "noise_multiplier": {"values": [0.0]},
+            # "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
             "inner_steps": {"values": [1]},
-            "wd": {"values": [0.0001, 0.001]},
-            "num_steps": {"values": [100]},
-            "num_client_agg": {"values": [5]},
+            "wd": {"values": [0.0001]},
+            "num_steps": {"values": [40]},
+            "num_client_agg": {"values": [num_users]},
             "depth_power": {"values": [1]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,
-          train_fn=trainer_keypressemg_gep_public_no_gp.train)
+          train_fn=trainer_keypressemg_gep_aux_no_gp.train)

@@ -10,6 +10,7 @@ import trainer_sgd_dp_no_gp
 
 
 def train(args):
+    set_seed(args.seed)
     trainer_sgd_dp_no_gp.train(args, get_dataloaders(args))
 
 if __name__ == '__main__':
@@ -24,7 +25,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=888, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=480, help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=51, help="seed value")
-    parser.add_argument('--wandb', type=str2bool, default=True)
+    parser.add_argument('--wandb', type=str2bool, default=False)
 
     #############################
     #       Dataset Args        #
@@ -62,7 +63,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for putEMG dataset"
     )
     parser.add_argument("--data-path", type=str,
-                        default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
+                        default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
@@ -92,7 +94,6 @@ if __name__ == '__main__':
     logger = set_logger(args)
     logger.info(f"Args: {args}")
     logger.debug('Debug Logger Set')
-    set_seed(args.seed)
 
     exp_name = f'SGD-DP_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 

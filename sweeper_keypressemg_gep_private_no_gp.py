@@ -1,4 +1,5 @@
 import argparse
+import logging
 from pathlib import Path
 import torch
 import trainer_keypressemg_gep_private_no_gp
@@ -15,7 +16,7 @@ if __name__ == '__main__':
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=176, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=320, help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -41,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument("--exp-name", type=str, default='Sweep_GEP_private_keypressemg', help="suffix for exp name")
     parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
                         help="dir path for saved models")
-    parser.add_argument("--seed", type=int, default=42, help="seed value")
+    parser.add_argument("--seed", type=int, default=52, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=True)
 
     ##################################
@@ -60,7 +61,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG', 'keypressemg'], help="Name of the dataset"
     )
     parser.add_argument("--data-path", type=str,
-                        default=(Path.cwd() / 'data/keypressemg_toronto/valid_user_features').as_posix(),
+                        default='./data/EMG/keypressemg/CleanData/valid_features_long_npy',
+                        # default=(Path.cwd() / 'data/valid_user_features').as_posix(),
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
@@ -79,6 +81,7 @@ if __name__ == '__main__':
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_private",
                         help="dir path for logger file")
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="keypressemg_gep_private.csv", help="dir path for csv file")
 
@@ -90,20 +93,22 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": "gep_private_keypressemg",
+        "name": f"gep_private_keypressemg_{args.num_features}_{args.seed}",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "eval_acc"},
+        "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
-            "lr": {"values": [0.001, 0.01]},
-            "global_lr": {"values": [0.9, 0.1]},
-            "seed": {"values": [50]},
-            "clip": {"values": [0.1]},
-            "noise_multiplier": {"values": [0.1]},
-            "inner_steps": {"values": [5, 20]},
+            "lr": {"values": [0.1]},
+            "global_lr": {"values": [0.999, 0.5]},
+            "seed": {"values": [args.seed]},
+            "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
+            "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
+            "inner_steps": {"values": [1]},
+            "basis-size": {"values": [19]},
+            "gradients-history-size": {"values": [20]},
             "wd": {"values": [0.0001, 0.001]},
-            "num_steps": {"values": [1000]},
-            # "num_client_agg": {"values": [5]},
-            "depth_power": {"values": [1, 2]}
+            "num_steps": {"values": [100]},
+            "num_client_agg": {"values": [5]},
+            "depth_power": {"values": [1]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,

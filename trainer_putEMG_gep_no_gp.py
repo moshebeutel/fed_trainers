@@ -1,4 +1,5 @@
 import argparse
+import logging
 from pathlib import Path
 import torch
 import wandb
@@ -8,6 +9,7 @@ from utils import set_logger, set_seed, str2bool
 
 
 def train(args):
+    set_seed(args.seed)
     trainer_gep_private_no_gp.train(args, get_dataloaders(args))
 
 if __name__ == '__main__':
@@ -22,7 +24,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=888, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=480, help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -67,7 +69,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data-path", type=str,
-                        default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
+                        default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
@@ -83,7 +86,7 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
     parser.add_argument("--eval-after", type=int, default=4, help="eval only after X selected epochs")
-
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="gep_private_emg", help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
@@ -96,7 +99,6 @@ if __name__ == '__main__':
 
     logger = set_logger(args)
     logger.info(f"Args: {args}")
-    set_seed(args.seed)
 
     exp_name = f'GEP_PRIVATE_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 

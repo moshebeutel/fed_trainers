@@ -107,7 +107,7 @@ def get_bases(pub_grad, num_bases):
     # print(f'translate_transform {translate_transform}\nscale_transform {scale_transform}')
 
     # for nb in [n for n in [10, 20, 50, 100, 500, 750, 1000] if n <= num_bases]:
-    # for nb in [n for n in [5, 10, 15, 18, 19, 20]]:
+    # for nb in [n for n in [5, 10, 20, 50, 100, 150, 176]]:
     #     err = torch.dist(X, U[:, :nb] @ torch.diag(S[:nb]) @ Vh[:nb, :])
     #     print(f'Reconstruction Error for num bases {nb}: {err}')
 

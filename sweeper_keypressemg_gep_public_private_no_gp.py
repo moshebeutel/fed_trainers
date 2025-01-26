@@ -2,14 +2,14 @@ import argparse
 import logging
 from pathlib import Path
 import torch
-import trainer_keypressemg_gep_public_no_gp
+import trainer_keypressemg_gep_public_private_no_gp
 from keypressemg_utils import get_num_users
 from sweep_utils import sweep
 from utils import set_logger, str2bool
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(description="Sweep GEP Public Federated Learning Toronto Surface EMG Typing Database")
+    parser = argparse.ArgumentParser(
+        description="Sweep GEP Public Federated Learning Toronto Surface EMG Typing Database")
     num_users = get_num_users()
     ##################################
     #       Network args        #
@@ -66,7 +66,7 @@ if __name__ == '__main__':
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=num_users-5, help="number of private clients")
+    parser.add_argument("--num-private-clients", type=int, default=num_users - 5, help="number of private clients")
     parser.add_argument("--num_public_clients", type=int, default=5, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=26, help="number of classes each client experience")
 
@@ -79,11 +79,10 @@ if __name__ == '__main__':
 
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_public", help="dir path for logger file")
+    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_public_private", help="dir path for logger file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="keypressemg_gep_public.csv", help="dir path for csv file")
-
+    parser.add_argument("--csv-name", type=str, default="keypressemg_gep_public_private.csv", help="dir path for csv file")
 
     args = parser.parse_args()
 
@@ -93,24 +92,24 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"gep_public_keypressemg_{args.num_features}_{args.seed}",
+        "name": f"gep_public_private_keypressemg_{args.num_features}_{args.seed}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
             "lr": {"values": [0.1]},
-            "global_lr": {"values": [0.999, 0.5]},
+            "global_lr": {"values": [0.999]},
             "seed": {"values": [args.seed]},
             "basis-size": {"values": [19]},
-            "gradients-history-size": {"values": [20]},
+            "gradients-history-size": {"values": [20, 40, 80]},
             "num_public_clients": {"values": [5]},
             "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
             "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
             "inner_steps": {"values": [1]},
-            "wd": {"values": [0.0001, 0.001]},
+            "wd": {"values": [0.001]},
             "num_steps": {"values": [100]},
             "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,
-          train_fn=trainer_keypressemg_gep_public_no_gp.train)
+          train_fn=trainer_keypressemg_gep_public_private_no_gp.train)
