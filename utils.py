@@ -41,7 +41,6 @@ def set_logger(args):
     logger = logging.getLogger(args.log_name)
     logger.setLevel(args.log_level)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger.setLevel(args.log_level)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
