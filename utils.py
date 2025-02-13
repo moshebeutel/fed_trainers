@@ -7,14 +7,16 @@ import random
 import sys
 import time
 import warnings
+from argparse import Namespace
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Collection
 import numpy as np
 import pandas as pd
 import torch
 import wandb
 from sklearn import metrics
+from torch.utils.data import DataLoader
 
 
 def set_seed(seed, cudnn_enabled=True):
@@ -536,3 +538,55 @@ def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, glob
     # update new parameters of global net
     net.load_state_dict(params)
     return net
+
+
+def log_data_statistics(dataloaders: Collection[DataLoader], args: Namespace) -> None:
+
+    if not args.log_data_statistics:
+        return
+
+    train_loaders, val_loaders, test_loaders = dataloaders
+
+    num_classes = args.num_classes
+    num_channels = args.num_features / args.num_features_per_channel
+    for k, v in train_loaders.items():
+        train_data = []
+        train_labels = []
+        for t, l in train_loaders[k]:
+            train_data.append(t)
+            train_labels.append(l)
+
+        test_data = []
+        test_labels = []
+        for t, l in test_loaders[k]:
+            test_data.append(t)
+            test_labels.append(l)
+
+        train_data = torch.cat(train_data)
+        # train_data = (train_data - train_data.min(0).values) / (train_data.max(0).values - train_data.min(0).values)
+        train_labels = torch.cat(train_labels)
+        test_data = torch.cat(test_data)
+        # test_data = (test_data - test_data.min(0).values) / (test_data.max(0).values - test_data.min(0).values)
+        test_labels = torch.cat(test_labels)
+
+        train_data = torch.stack(
+            [train_data[i].reshape(-1, num_channels).mean(1).squeeze() for i in range(train_data.shape[0])])
+        test_data = torch.stack(
+            [test_data[i].reshape(-1, num_channels).mean(1).squeeze() for i in range(test_data.shape[0])])
+
+        label_inds = [(train_labels == i).nonzero() for i in range(num_classes)]
+        train_data = [train_data[inds].squeeze() for inds in label_inds]
+
+        label_inds = [(test_labels == i).nonzero() for i in range(num_classes)]
+        test_data = [test_data[inds].squeeze() for inds in label_inds]
+
+        train_data_means = [t.mean(0) for t in train_data]
+        test_data_means = [t.mean(0) for t in test_data]
+
+        print('client', k)
+        for i in range(num_classes):
+            print('label', i)
+            train_mean = train_data_means[i]
+            test_mean = test_data_means[i]
+
+            print('mean-mean similarity\t', torch.cosine_similarity(train_mean, test_mean, dim=0))

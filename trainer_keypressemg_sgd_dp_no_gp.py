@@ -3,15 +3,19 @@ import logging
 from pathlib import Path
 import torch
 import wandb
-from utils import set_logger, set_seed, str2bool
+from utils import set_logger, set_seed, str2bool, log_data_statistics
 import trainer_sgd_dp_no_gp
 from keypressemg_utils import get_num_users, get_dataloaders
 
 
-
 def train(args):
     set_seed(args.seed)
-    trainer_sgd_dp_no_gp.train(args, get_dataloaders(args))
+    dataloaders = get_dataloaders(args)
+
+    log_data_statistics(dataloaders, args)
+
+    trainer_sgd_dp_no_gp.train(args, dataloaders)
+
 
 if __name__ == '__main__':
 
@@ -23,16 +27,18 @@ if __name__ == '__main__':
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
     parser.add_argument("--num-features", type=int, default=320, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features-per-channel", type=int, default=20,
+                        help="Number of extracted features per channel")
 
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=200)
+    parser.add_argument("--num-steps", type=int, default=400)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
+    parser.add_argument("--inner-steps", type=int, default=5, help="number of inner steps")
+    parser.add_argument("--num-client-agg", type=int, default=num_users, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.999, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
@@ -50,6 +56,7 @@ if __name__ == '__main__':
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
+    parser.add_argument('--log-data-statistics', type=str2bool, default=False)
 
     #############################
     #       Dataset Args        #
@@ -74,7 +81,7 @@ if __name__ == '__main__':
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=10, help="eval only after X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=1, help="eval only after X selected epochs")
 
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
@@ -82,7 +89,6 @@ if __name__ == '__main__':
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="keypressemg_sgd_dp.csv", help="dir path for csv file")
-
 
     args = parser.parse_args()
 

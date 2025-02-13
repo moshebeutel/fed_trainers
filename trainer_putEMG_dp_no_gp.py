@@ -4,14 +4,16 @@ from pathlib import Path
 import torch
 import wandb
 from emg_utils import get_dataloaders, get_num_users
-from utils import set_logger, set_seed, str2bool
+from utils import set_logger, set_seed, str2bool, log_data_statistics
 import trainer_sgd_dp_no_gp
 
 
 
 def train(args):
     set_seed(args.seed)
-    trainer_sgd_dp_no_gp.train(args, get_dataloaders(args))
+    dataloaders = get_dataloaders(args)
+    log_data_statistics(dataloaders, args)
+    trainer_sgd_dp_no_gp.train(args, dataloaders)
 
 if __name__ == '__main__':
 
@@ -26,6 +28,8 @@ if __name__ == '__main__':
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
     parser.add_argument("--num-features", type=int, default=480, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features-per-channel", type=int, default=20, help="Number of extracted features per channel")
+
 
     ##################################
     #       Optimization args        #
@@ -53,6 +57,8 @@ if __name__ == '__main__':
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=51, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
+
+    parser.add_argument('--log-data-statistics', type=str2bool, default=False)
 
     #############################
     #       Dataset Args        #
