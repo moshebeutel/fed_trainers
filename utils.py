@@ -10,13 +10,13 @@ import warnings
 from argparse import Namespace
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Collection
+from typing import Dict, Collection, Optional
 import numpy as np
 import pandas as pd
 import torch
 import wandb
 from sklearn import metrics
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 
 def set_seed(seed, cudnn_enabled=True):
@@ -317,8 +317,33 @@ def calc_metrics(results):
     return avg_loss, avg_acc
 
 
-def local_train(args, net, train_loader, pbar, pbar_dict: Dict):
-    local_net = copy.deepcopy(net)
+def get_distance_matrix(args) -> torch.Tensor:
+    if hasattr(args, 'distance_matrix_file'):
+        filepath = Path(args.distance_matrix_file)
+        assert filepath.exists(), f'{filepath} does not exist'
+        assert filepath.is_file(), f'{filepath} is not a file'
+
+        # Load the CSV file into a Pandas DataFrame
+        df = pd.read_csv(filepath, index_col=0)
+
+        # Convert the DataFrame to a torch Tensor
+        distance_matrix: torch.Tensor = torch.tensor(df.values, dtype=torch.float32)
+    else:
+        distance_matrix = torch.ones(args.num_classes, args.num_classes, dtype=torch.float32)
+
+    distance_matrix = torch.pow(distance_matrix, 2)
+
+    return distance_matrix
+
+
+def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict):
+    # initialize distance matrix
+    if not hasattr(local_train, 'distance_matrix'):
+        local_train.distance_matrix = get_distance_matrix(args)
+
+    distance_matrix: torch.Tensor = local_train.distance_matrix
+
+    local_net: torch.nn.Module = copy.deepcopy(net)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
     criteria = torch.nn.CrossEntropyLoss()
@@ -332,8 +357,11 @@ def local_train(args, net, train_loader, pbar, pbar_dict: Dict):
 
             # forward prop
             pred = local_net(x)
-            loss = criteria(pred, Y)
-
+            # loss = criteria(pred, Y)
+            loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
+                    torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
+            # loss = criteria(pred, distance_matrix[Y])
+            # loss = torch.einsum('ij,ij->i', pred, distance_matrix[Y].float()).sum()
             # back prop
             loss.backward()
             # # clip gradients
@@ -359,8 +387,7 @@ def get_optimizer(args, network):
         if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
 
 
-@torch.no_grad()
-def eval_model(args, global_model, client_ids, loaders):
+def eval_model(args, global_model, client_ids, loaders, plot_confusion_matrix=False):
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
@@ -383,9 +410,45 @@ def eval_model(args, global_model, client_ids, loaders):
         all_targets = []
         all_preds = []
 
+        split_calib = args.calibration_split
+        assert 0 <= split_calib <= 1, f'Expected 0 <= split_calib <= 1. Got {split_calib}'
+
+        local_net = copy.deepcopy(global_model)
+        if split_calib > 0:
+
+            dataset = test_loader.dataset
+
+            test_set, calib_set = random_split(dataset, [1 - split_calib, split_calib])
+
+            calib_loader = DataLoader(calib_set, batch_size=args.batch_size, shuffle=True)
+            test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
+
+            local_net.train()
+            optimizer = get_optimizer(args, local_net)
+            criteria = torch.nn.CrossEntropyLoss()
+
+            for k, batch in enumerate(calib_loader):
+                x, Y = tuple(t.to(device) for t in batch)
+
+                optimizer.zero_grad()
+
+                # forward prop
+                pred = local_net(x)
+                loss = criteria(pred, Y)
+
+                # back prop
+                loss.backward()
+
+                # update local parameters
+                optimizer.step()
+
+        local_net.eval()
+
         for batch_count, batch in enumerate(test_loader):
             X_test, Y_test = tuple(t.to(device) for t in batch)
-            pred = global_model(X_test)
+
+            with torch.no_grad():
+                pred = local_net(X_test)
 
             loss = criteria(pred, Y_test)
             predicted = torch.max(pred, dim=1)[1].cpu().numpy()
@@ -420,9 +483,19 @@ def eval_model(args, global_model, client_ids, loaders):
     avg_acc = (y_true_all == y_pred_all).mean().item()
     avg_loss = loss_all
     avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
+    # if plot_confusion_matrix:
+    #     import matplotlib.pyplot as plt
+    #     cm = metrics.confusion_matrix(y_true_all, y_pred_all)
+    #     disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
+    #     disp.plot()
+    #     plt.show()
     avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
 
-    return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+    if plot_confusion_matrix:
+        return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+    else:
+        return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+    # return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
 
 
 def flatten_tensor(tensor_list) -> torch.Tensor:
@@ -438,11 +511,9 @@ def flatten_tensor(tensor_list) -> torch.Tensor:
 
 
 def get_clients(args):
-
     if args.data_name == 'keypressemg':
         import keypressemg_utils
         return keypressemg_utils.get_clients(args)
-
 
     num_clients = args.num_clients
     num_private_clients = args.num_private_clients
@@ -526,6 +597,12 @@ def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, tr
     wandb.log(log_dict)
 
 
+def wandb_plot_confusion_matrix(ground_truth, predictions, class_names):
+    wandb.log({"conf_mat": wandb.plot.confusion_matrix(probs=None,
+                                                       y_true=ground_truth, preds=predictions,
+                                                       class_names=class_names)})
+
+
 @torch.no_grad()
 def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr):
     # update old parameters using private aggregated grads
@@ -541,7 +618,6 @@ def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, glob
 
 
 def log_data_statistics(dataloaders: Collection[DataLoader], args: Namespace) -> None:
-
     if not args.log_data_statistics:
         return
 

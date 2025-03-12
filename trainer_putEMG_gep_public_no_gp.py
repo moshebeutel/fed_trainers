@@ -40,7 +40,8 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
-
+    parser.add_argument("--calibration_split", type=float, default=0.0,
+                        help="split ratio of the test set for calibration before testing")
     ##################################
     #       GEP args                 #
     ##################################

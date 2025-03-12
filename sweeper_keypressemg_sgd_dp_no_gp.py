@@ -34,7 +34,8 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
-
+    parser.add_argument("--calibration_split", type=float, default=0.2,
+                        help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
     #############################
@@ -45,6 +46,7 @@ if __name__ == '__main__':
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=52, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=True)
+    parser.add_argument('--log_data_statistics', type=str2bool, default=False)
 
     ##################################
     #       GEP args                 #
@@ -84,7 +86,9 @@ if __name__ == '__main__':
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="keypressemg_sgd_dp.csv", help="dir path for csv file")
-
+    parser.add_argument("--distance_matrix_file", type=str,
+                        default="data/Alphabetically_Sorted_QWERTY_Distance_Matrix.csv",
+                        help="dir path for csv file")
 
     args = parser.parse_args()
 
@@ -94,20 +98,28 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"sgd_dp_keypressemg_{args.num_features}_{args.seed}",
+        "name": f"sgd_dp_keypressemg_{args.num_features}_{103}",
+        # "name": f"sgd_dp_keypressemg_{args.num_features}_{103_110}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
-            "lr": {"values": [0.1]},
-            "global_lr": {"values": [0.999, 0.5]},
-            "seed": {"values": [args.seed]},
-            "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
-            "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
-            "inner_steps": {"values": [1]},
-            "num_steps": {"values": [100]},
-            "wd": {"values": [0.0001, 0.001]},
+            "lr": {"values": [0.01]},
+            # "lr": {"values": [0.1]},
+            "global_lr": {"values": [0.999]},
+            "seed": {"values": [103, 104, 105]},
+            # "seed": {"values": [103, 104, 105, 106, 107, 108, 109, 110]},
+            "clip": {"values": [10.0, 20.0]},
+            # "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
+            "noise_multiplier": {"values": [0.0]},
+            # "noise_multiplier": {"values": [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]},
+            "calibration_split": {"values": [0.0]},
+            # "calibration_split": {"values": [0.0, 0.1, 0.2]},
+            "inner_steps": {"values": [20]},
+            "num_steps": {"values": [400]},
+            "wd": {"values": [0.001]},
             "num_client_agg": {"values": [5]},
-            "depth_power": {"values": [1]}
+            "depth_power": {"values": [1]},
+            "log_data_statistics": {"values": [False]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,

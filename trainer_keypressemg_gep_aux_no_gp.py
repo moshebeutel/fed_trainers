@@ -49,7 +49,8 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-
+    parser.add_argument("--calibration_split", type=float, default=0.2,
+                        help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
     #############################
@@ -64,9 +65,9 @@ if __name__ == '__main__':
     ##################################
     #       GEP args                 #
     ##################################
-    parser.add_argument("--gradients-history-size", type=int,
+    parser.add_argument("--gradients_history_size", type=int,
                         default=176, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis-size", type=int, default=44, help="number of basis vectors")
+    parser.add_argument("--basis_size", type=int, default=44, help="number of basis vectors")
 
     #############################
     #       Dataset Args        #
@@ -98,10 +99,10 @@ if __name__ == '__main__':
 
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sgd_dp_emg", help="dir path for logger file")
-    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
+    parser.add_argument("--log-name", type=str, default="keypressemg_gep_aux", help="dir path for logger file")
+    parser.add_argument("--log-level", type=int, default=logging.DEBUG, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="keypressemg_sgd_dp.csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default="keypressemg_gep_aux.csv", help="dir path for csv file")
 
 
     args = parser.parse_args()
@@ -111,7 +112,7 @@ if __name__ == '__main__':
     logger = set_logger(args)
     logger.info(f"Args: {args}")
 
-    exp_name = f'GEP_PUBLIC_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
+    exp_name = f'GEP_AUX_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 
     # Weights & Biases
     if args.wandb:

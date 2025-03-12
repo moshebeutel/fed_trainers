@@ -33,7 +33,8 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
-
+    parser.add_argument("--calibration_split", type=float, default=0.0,
+                        help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
     #############################
@@ -94,22 +95,25 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"gep_public_private_putEMG_small_basis_{args.num_features}_{args.seed}",
+        "name": f"gep_public_private_putEMG_small_basis_{args.num_features}_103to110",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
             "lr": {"values": [0.1]},
             "global_lr": {"values": [0.999]},
-            "seed": {"values": [args.seed]},
-            "basis-size": {"values": [5, 10]},
-            "gradients-history-size": {"values": [10, 15, 20, 30]},
+            "seed": {"values": [103, 104, 105, 106, 107, 108, 109, 110]},
+            "basis-size": {"values": [44]},
+            "gradients-history-size": {"values": [45]},
+            # "gradients-history-size": {"values": [45, 90]},
             "num_public_clients": {"values": [5]},
-            # "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
-            "clip": {"values": [0.01]},
-            "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
+            "clip": {"values": [1.0, 0.1]},
+            # "clip": {"values": [0.01]},
+            # "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
+            "calibration_split": {"values": [0.0, 0.1, 0.2]},
+            "noise_multiplier": {"values": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]},
             "inner_steps": {"values": [1]},
             "wd": {"values": [0.001]},
-            "num_steps": {"values": [100]},
+            "num_steps": {"values": [150]},
             "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1]}
         },

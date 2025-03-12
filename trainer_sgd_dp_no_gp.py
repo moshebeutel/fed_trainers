@@ -6,7 +6,7 @@ import torch
 from tqdm import trange
 from model import get_model
 from utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
-    load_aggregated_grads_to_global_net
+    load_aggregated_grads_to_global_net, wandb_plot_confusion_matrix
 
 
 def train(args, dataloaders):
@@ -88,6 +88,7 @@ def train(args, dataloaders):
 
         # Evaluate model
         if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:
+
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -109,14 +110,35 @@ def train(args, dataloaders):
                       val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
                       val_loss_dict)
 
-    # Test best model
-    test_results = eval_model(args, best_model, private_clients, test_loaders)
+    # calibration
+    for j, c_id in enumerate(private_clients):
+        calib_loader = val_loaders[c_id]
 
-    _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
+        pbar_dict.update(
+            {
+                'Step': 'Cal',
+                'Client': f'{c_id}'.zfill(3),
+                'Client Number in Step': f'{(j + 1)}'.zfill(3),
+                # 'Train Avg Loss': f'{train_avg_loss:.4f}',
+                # 'Train Current Loss': f'{0.:.4f}',
+                # 'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
+                # 'Val Avg Acc': f'{val_avg_acc:.4f}',
+                # 'Best Avg Acc': f'{best_acc:.4f}'})
+            })
+        local_net, clib_avg_loss = local_train(args, net, calib_loader,
+                                               pbar=step_iter, pbar_dict=pbar_dict)
+
+    # Test best model
+    test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=True)
+
+    y_true_all, y_pred_all, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
+    # _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
 
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
+    if args.wandb:
+        wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
+
+
     update_frame(args, dp_method='SGD_DP', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
                  test_avg_acc=test_avg_acc)
-
-

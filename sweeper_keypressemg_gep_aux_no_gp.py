@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--aux-batch-size", type=int, default=512)
+    parser.add_argument("--aux-batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
@@ -35,7 +35,8 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-
+    parser.add_argument("--calibration_split", type=float, default=0.2,
+                        help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
     #############################
@@ -46,13 +47,14 @@ if __name__ == '__main__':
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=52, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=True)
+    parser.add_argument('--log-data-statistics', type=str2bool, default=False)
 
     ##################################
     #       GEP args                 #
     ##################################
-    parser.add_argument("--gradients-history-size", type=int,
+    parser.add_argument("--gradients_history_size", type=int,
                         default=20, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis-size", type=int, default=19, help="number of basis vectors")
+    parser.add_argument("--basis_size", type=int, default=19, help="number of basis vectors")
 
     #############################
     #       Dataset Args        #
@@ -79,15 +81,15 @@ if __name__ == '__main__':
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=10, help="eval only after X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=1, help="eval only after X selected epochs")
 
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_public", help="dir path for logger file")
-    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
+    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_aux", help="dir path for logger file")
+    parser.add_argument("--log-level", type=int, default=logging.DEBUG, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="keypressemg_gep_public.csv", help="dir path for csv file")
+    parser.add_argument("--csv-name", type=str, default="sweep_keypressemg_gep_aux.csv", help="dir path for csv file")
 
 
     args = parser.parse_args()
@@ -102,21 +104,21 @@ if __name__ == '__main__':
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
-            "lr": {"values": [1.0, 0.5]},
+            "lr": {"values": [0.1, 1.0, 0.9]},
             "global_lr": {"values": [1.0]},
             # "global_lr": {"values": [0.999, 0.5]},
             "seed": {"values": [args.seed]},
-            "basis-size": {"values": [5, 50]},
+            "basis_size": {"values": [5, 10]},
             # "basis-size": {"values": [44]},
-            "gradients-history-size": {"values": [44 * 2, 44 * 4]},
+            "gradients_history_size": {"values": [44]},
             "num_public_clients": {"values": [0]},
             "clip": {"values": [10.0]},
             # "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
             "noise_multiplier": {"values": [0.0]},
             # "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
-            "inner_steps": {"values": [1]},
+            "inner_steps": {"values": [1, 3]},
             "wd": {"values": [0.0001]},
-            "num_steps": {"values": [40]},
+            "num_steps": {"values": [50]},
             "num_client_agg": {"values": [num_users]},
             "depth_power": {"values": [1]}
         },

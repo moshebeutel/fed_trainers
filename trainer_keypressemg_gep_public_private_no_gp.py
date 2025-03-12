@@ -38,6 +38,8 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
+    parser.add_argument("--calibration_split", type=float, default=0.2,
+                        help="split ratio of the test set for calibration before testing")
 
     #############################
     #       General args        #
@@ -88,7 +90,9 @@ if __name__ == '__main__':
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="keypressemg_sgd_dp.csv", help="dir path for csv file")
-
+    parser.add_argument("--distance_matrix_file", type=str,
+                        default="data/Alphabetically_Sorted_QWERTY_Distance_Matrix.csv",
+                        help="dir path for csv file")
 
     args = parser.parse_args()
 
