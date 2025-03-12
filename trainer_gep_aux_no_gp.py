@@ -23,7 +23,6 @@ def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
     num_features_per_channel = 20
     num_classes = args.num_classes
     train_avg_loss = 0.0
-    optimizer.zero_grad()
     for k, batch in enumerate(train_loader):
         x, Y = batch
         sampled_channels = np.random.choice(range(num_channels_aux), size=num_channels, replace=False)
@@ -34,6 +33,8 @@ def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
         x = x.to(device)
         Y = Y.to(device)
 
+        optimizer.zero_grad()
+
         # forward prop
         pred = local_net(x)
         loss = criteria(pred, Y)
@@ -43,6 +44,7 @@ def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
         # # clip gradients
         # torch.nn.utils.clip_grad_norm_(local_net.parameters(), args.clip)
         # update local parameters
+        optimizer.step()
 
         # aggregate losses
         train_avg_loss += (loss.item() / Y.shape[0])
@@ -53,7 +55,6 @@ def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
         pbar.set_postfix(pbar_dict)
 
     # end of for k, batch in enumerate(train_loader):
-    optimizer.step()
     return local_net, train_avg_loss
 
 
@@ -125,6 +126,14 @@ def train(args, dataloaders):
 
         pca = compute_subspace(basis_gradients[:filled_history_size], args.basis_size, device)
 
+        # logger.debug(f'#$% step: {step}')
+        # logger.debug(f'#$% basis size: {args.basis_size} history {args.gradients_history_size} lr {args.lr} clip {args.clip}')
+        # logger.debug(f'#$% ********************************************************************')
+        # logger.debug(f'#$% translate transform: {torch.abs(pca[1]).mean().item()}')
+        # logger.debug(f'#$% scale transform: {pca[2]}')
+        # logger.debug(f'#$% explained_variance_ratio_: {pca[3].squeeze().tolist()}')
+        # logger.debug(f'#$% explained_variance_ratio_cumsum: {pca[4].squeeze().tolist()}')
+
         # *** End of public subspace update
 
         # Local trains on sampled clients
@@ -189,6 +198,11 @@ def train(args, dataloaders):
 
         reconstruction_similarity = float(torch.abs(similarity).mean())
         reconstruction_similarities.append(reconstruction_similarity)
+
+        # logger.debug(f'#$% norm_reconstructed: {norm_reconstructed.tolist()}')
+        # logger.debug(f'#$% norm_original: {norm_original.tolist()}')
+        logger.debug(f'#$% norm ratio norm: {float(torch.abs(norm_reconstructed / norm_original).mean()):.4f}')
+        logger.debug(f'#$% reconstruction_similarity: {reconstruction_similarity:.4f}')
 
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
