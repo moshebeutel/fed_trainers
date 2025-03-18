@@ -287,6 +287,10 @@ def initialize_weights(module: nn.Module):
             nn.init.kaiming_normal_(m.weight)
             if m.bias is not None:
                 m.bias.data.zero_()
+        elif isinstance(m, nn.Conv1d):
+            nn.init.kaiming_normal_(m.weight)
+            if m.bias is not None:
+                m.bias.data.zero_()
         elif isinstance(m, nn.Linear):
             nn.init.kaiming_normal_(m.weight)
             m.bias.data.zero_()
