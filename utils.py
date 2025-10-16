@@ -341,13 +341,13 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
     if not hasattr(local_train, 'distance_matrix'):
         local_train.distance_matrix = get_distance_matrix(args)
 
+    device = get_device()
     distance_matrix: torch.Tensor = local_train.distance_matrix
-
+    distance_matrix = distance_matrix.to(device)
     local_net: torch.nn.Module = copy.deepcopy(net)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
     criteria = torch.nn.CrossEntropyLoss()
-    device = get_device()
     train_avg_loss = 0.0
     for i in range(args.inner_steps):
         for k, batch in enumerate(train_loader):
@@ -358,6 +358,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
             # forward prop
             pred = local_net(x)
             # loss = criteria(pred, Y)
+            # breakpoint()
             loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
                     torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
             # loss = criteria(pred, distance_matrix[Y])

@@ -46,7 +46,8 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
-
+    parser.add_argument("--calibration_split", type=float, default=0.2,
+                        help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
     #############################
@@ -61,7 +62,8 @@ if __name__ == '__main__':
     parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
     parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
     parser.add_argument("--log-every", type=int, default=1, help="log every X selected epochs")
-
+    parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
+                        help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
@@ -76,6 +78,7 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
+    parser.add_argument("--num-classes", type=int, default=10, help="total number of clients")
 
     #############################
     #       Clients Args        #

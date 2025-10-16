@@ -13,9 +13,10 @@ tqdm = "^4.66.4"
 wandb = "^0.17.4"
 #gpytorch = {path = "gpytorch"}
 #pyeeg = {path = "pyeeg"}
-keypressemg = {path = "../sEMG-TypingDatabase", develop = true}
+# keypressemg = {path = "../sEMG-TypingDatabase", develop = true}
 #keypressemg = {git = "https://github.com/ANSLab-UHN/sEMG-TypingDatabase.git", rev = "ver_0_1_1", develop = true}
 pandas = "^2.2"
+scikit-learn = "^1.7.2"
 
 
 [build-system]

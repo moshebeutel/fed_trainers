@@ -4,7 +4,7 @@ import subprocess
 
 
 # for data_name in ['putEMG', 'cifar10', 'mnist']:
-for data_name in ['femnist']:
+for data_name in ['cifar10']:
 
     print(f'@@@ *** %%% Strat sweep  SGD_DP  {data_name} %%% *** @@@')
     optimizer = 'adam'
