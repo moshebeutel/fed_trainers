@@ -21,6 +21,8 @@ wandb = "^0.17.4"
 #keypressemg = {git = "https://github.com/ANSLab-UHN/sEMG-TypingDatabase.git", rev = "ver_0_1_1", develop = true}
 pandas = "^2.2"
 scikit-learn = "^1.7.2"
+backpack-for-pytorch = "^1.7.1"
+opacus = "^1.5.4"
 
 [tool.poetry.scripts]
 sweeper_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'
