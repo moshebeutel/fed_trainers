@@ -8,27 +8,27 @@ COPY ./pyeeg /workspace
 COPY ./pypolyagamma /workspace
 
 
-COPY ./emg_utils.py /workspace
-COPY ./gep_utils.py /workspace
+COPY fed_trainers/datasets/emg_utils.py /workspace
+COPY fed_trainers/trainers/gep/gep_utils.py /workspace
 COPY ./hyper_sweeper.sh /workspace
-COPY ./model.py /workspace
-COPY ./utils.py /workspace
+COPY fed_trainers/trainers/model.py /workspace
+COPY fed_trainers/trainers/utils.py /workspace
 
-COPY ./sweeper_cifar10_dp_no_gp.py /workspace
-COPY ./sweeper_cifar10_gep_public_no_gp.py /workspace
-COPY ./sweeper_cifar10_gep_no_gp.py /workspace
+COPY fed_trainers/sweepers/dp_sgd/sweeper_cifar10_dp_no_gp.py /workspace
+COPY fed_trainers/sweepers/gep/sweeper_cifar10_gep_public_no_gp.py /workspace
+COPY fed_trainers/sweepers/gep/sweeper_cifar10_gep_no_gp.py /workspace
 
-COPY ./trainer_cifar10_dp_no_gp.py /workspace
-COPY ./trainer_cifar10_gep_public_no_gp.py /workspace
-COPY ./trainer_cifar10_gep_no_gp.py /workspace
+COPY fed_trainers/trainers/dp_sgd/trainer_cifar10_dp_no_gp.py /workspace
+COPY fed_trainers/trainers/gep/trainer_cifar10_gep_public_no_gp.py /workspace
+COPY fed_trainers/trainers/gep/trainer_cifar10_gep_no_gp.py /workspace
 
-COPY ./trainer_putEMG_dp_no_gp.py /workspace
-COPY ./trainer_putEMG_gep_no_gp.py /workspace
-COPY ./trainer_putEMG_gep_public_no_gp.py /workspace
+COPY fed_trainers/trainers/dp_sgd/trainer_putEMG_dp_no_gp.py /workspace
+COPY fed_trainers/trainers/gep/trainer_putEMG_gep_no_gp.py /workspace
+COPY fed_trainers/trainers/gep/trainer_putEMG_gep_public_no_gp.py /workspace
 
-COPY ./trainer_sgd_dp_no_gp.py /workspace
-COPY ./trainer_gep_public_no_gp.py /workspace
-COPY ./trainer_gep_private_no_gp.py /workspace
+COPY fed_trainers/trainers/dp_sgd/trainer_sgd_dp_no_gp.py /workspace
+COPY fed_trainers/trainers/gep/trainer_gep_public_no_gp.py /workspace
+COPY fed_trainers/trainers/gep/trainer_gep_private_no_gp.py /workspace
 
 
 COPY ./requirements.txt /workspace

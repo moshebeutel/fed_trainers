@@ -5,6 +5,10 @@ description = ""
 authors = ["moshe <moshebeutel@gmail.com>"]
 readme = "README.md"
 
+packages = [
+    { include = "fed_trainers" },
+]
+
 [tool.poetry.dependencies]
 python = "^3.10"
 torch = "^2.3.0"
@@ -13,10 +17,16 @@ tqdm = "^4.66.4"
 wandb = "^0.17.4"
 #gpytorch = {path = "gpytorch"}
 #pyeeg = {path = "pyeeg"}
-keypressemg = {path = "../sEMG-TypingDatabase", develop = true}
+# keypressemg = {path = "../sEMG-TypingDatabase", develop = true}
 #keypressemg = {git = "https://github.com/ANSLab-UHN/sEMG-TypingDatabase.git", rev = "ver_0_1_1", develop = true}
 pandas = "^2.2"
+scikit-learn = "^1.7.2"
+backpack-for-pytorch = "^1.7.1"
+opacus = "^1.5.4"
 
+[tool.poetry.scripts]
+sweeper_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'
+sweeper_cifar10_gep_public = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_public_no_gp:main'
 
 [build-system]
 requires = ["poetry-core"]
