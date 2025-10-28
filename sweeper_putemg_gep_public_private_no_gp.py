@@ -16,7 +16,7 @@ if __name__ == '__main__':
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=480, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=120, choices=[120,480], help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -62,9 +62,9 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
     )
     parser.add_argument("--data-path", type=str,
-                        default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
-                        # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
+                        default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
@@ -106,14 +106,15 @@ if __name__ == '__main__':
             "gradients-history-size": {"values": [45]},
             # "gradients-history-size": {"values": [45, 90]},
             "num_public_clients": {"values": [5]},
-            "clip": {"values": [1.0, 0.1]},
+            "clip": {"values": [30.0]},
             # "clip": {"values": [0.01]},
             # "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
             "calibration_split": {"values": [0.0, 0.1, 0.2]},
-            "noise_multiplier": {"values": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]},
+            "noise_multiplier": {"values": [0.0, 0.5, 1.0]},
+            # "noise_multiplier": {"values": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]},
             "inner_steps": {"values": [1]},
             "wd": {"values": [0.001]},
-            "num_steps": {"values": [150]},
+            "num_steps": {"values": [30]},
             "num_client_agg": {"values": [5]},
             "depth_power": {"values": [1]}
         },

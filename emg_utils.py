@@ -35,10 +35,10 @@ def get_dataloaders(args):
         calculated_features_folder.glob('*.hdf5'))) > 0, f'{calculated_features_folder} does not contain hdf5 files'
 
     # list all hdf5 files in given input folder
-    # all_files = [f.as_posix().replace('_filtered_features', '')
-    #              for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
-    all_files = [f.as_posix().replace('_filtered', '')
-                 for f in sorted(calculated_features_folder.glob("*_filtered.hdf5"))]
+    all_files = [f.as_posix().replace('_filtered_features', '')
+                 for f in sorted(calculated_features_folder.glob("*_features.hdf5"))]
+    # all_files = [f.as_posix().replace('_filtered', '')
+    #              for f in sorted(calculated_features_folder.glob("*_filtered.hdf5"))]
 
     users_files = []
     users = get_user_list()
@@ -71,30 +71,35 @@ def get_dataloaders(args):
     for r in records_filtered_by_subject:
         # print("Reading features for input file: ", r)
         filename = os.path.splitext(r.path)[0]
-        dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder, filename + '_filtered.hdf5')))
+        # dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder, filename + '_filtered.hdf5')))
 
-        # dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
-        #                                                filename + '_filtered_features.hdf5')))
-    features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP'] if args.num_features == 8 * 24 else ["IAV",
-                                                                                                            "AAC",
-                                                                                                            "DASDV",
-                                                                                                            "Kurt",
-                                                                                                            "MAV1",
-                                                                                                            "MAV2",
-                                                                                                            "MAV",
-                                                                                                            "MHW",
-                                                                                                            'RMS',
-                                                                                                            "Skew",
-                                                                                                            "SSI",
-                                                                                                            'VAR',
-                                                                                                            'WL',
-                                                                                                            "MNF",
-                                                                                                            "MDF",
-                                                                                                            "PKF",
-                                                                                                            "MNP",
-                                                                                                            "TTP",
-                                                                                                            "VCF",
-                                                                                                            "OHM"]
+        dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
+                                                       filename + '_filtered_features.hdf5')))
+
+    features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP'] \
+        if args.num_features == 8 * 24 else ( ["IAV",
+                                                "AAC",
+                                                "DASDV",
+                                                "Kurt",
+                                                "MAV1",
+                                                "MAV2",
+                                                "MAV",
+                                                "MHW",
+                                                'RMS',
+                                                "Skew",
+                                                "SSI",
+                                                'VAR',
+                                                'WL',
+                                                "MNF",
+                                                "MDF",
+                                                "PKF",
+                                                "MNP",
+                                                "TTP",
+                                                "VCF",
+                                                "OHM"]
+    if args.num_features == 20 * 24 else ["RMS", "MAV", "WL", "IAV", "VAR"])
+
+    assert len(features) * 24 == args.num_features, f'Expected num features: {len(features)}. Do not match args'
 
     logger.debug(f'Found {len(dfs)} dataframes')
 
@@ -163,13 +168,18 @@ def get_dataloaders(args):
                 logger.debug(f'Test data shape: {test_x.shape}')
 
                 # Change order to channel-features instead of feature-channels
-                X = train_x.reshape(-1, 24, 20)
+                num_channels = 24
+                num_features = args.num_features
+                assert num_channels * len(features) == num_features, \
+                    (f'Expected num_channels {num_channels} * len(features) {len(features)} = args.num_features {num_features}.'
+                     f' Got {num_channels * len(features)}')
+                X = train_x.reshape(-1, num_channels, len(features))
                 X = torch.movedim(X, 1, 2)
-                train_x = X.reshape(-1, 480)
+                train_x = X.reshape(-1, num_features)
 
-                X = test_x.reshape(-1, 24, 20)
+                X = test_x.reshape(-1, num_channels, len(features))
                 X = torch.movedim(X, 1, 2)
-                test_x = X.reshape(-1, 480)
+                test_x = X.reshape(-1, num_features)
 
                 train_x_s.append(train_x)
                 test_x_s.append(test_x)

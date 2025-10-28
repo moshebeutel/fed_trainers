@@ -21,7 +21,7 @@ if __name__ == '__main__':
     ##################################
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=480, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=120, choices=[120,480], help="Number of extracted features (model input size)")
 
     ##################################
     #       Optimization args        #
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.999, help="server learning rate")
-    parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
+    parser.add_argument("--wd", type=float, default=1e-3, help="weight decay")
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
@@ -55,8 +55,8 @@ if __name__ == '__main__':
     #       GEP args                 #
     ##################################
     parser.add_argument("--gradients-history-size", type=int,
-                        default=100, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis-size", type=int, default=19, help="number of basis vectors")
+                        default=45, help="amount of past gradients participating in embedding subspace computation")
+    parser.add_argument("--basis-size", type=int, default=44, help="number of basis vectors")
 
     #############################
     #       Dataset Args        #
@@ -67,9 +67,9 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data-path", type=str,
-                        default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
-                       # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
+                       default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                        # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                        help="dir path for dataset")
     parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
@@ -83,7 +83,6 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
     parser.add_argument("--eval-after", type=int, default=10, help="eval only after X selected epochs")
-
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="emg_gep_public_private", help="dir path for logger file")

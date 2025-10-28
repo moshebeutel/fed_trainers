@@ -2,7 +2,7 @@ import argparse
 import logging
 from pathlib import Path
 import torch
-import trainer_putEMG_gep_public_no_gp
+import trainer_putEMG_nonlinear_gep_public_private_no_gp
 from emg_utils import get_num_users
 from sweep_utils import sweep
 from utils import set_logger, str2bool
@@ -27,11 +27,11 @@ if __name__ == '__main__':
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.1, help="server learning rate")
-    parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
+    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=0.999, help="server learning rate")
+    parser.add_argument("--wd", type=float, default=1e-3, help="weight decay")
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
-    parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
+    parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
@@ -40,12 +40,11 @@ if __name__ == '__main__':
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp-name", type=str, default='Sweep_GEP_PUBLIC_putEMG', help="suffix for exp name")
+    parser.add_argument("--exp-name", type=str, default='Sweep_nonlinear_GEP_PUBLIC_PRIVATE_putEMG', help="suffix for exp name")
     parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=True)
-    parser.add_argument('--log-data-statistics', type=str2bool, default=False)
 
     ##################################
     #       GEP args                 #
@@ -96,21 +95,26 @@ if __name__ == '__main__':
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"gep_public_putEMG_{args.num_features}_103to110",
+        "name": f"nonlinear_gep_public_private_putEMG_small_basis_{args.num_features}_103to110",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_avg_acc"},
         "parameters": {
             "lr": {"values": [0.1]},
             "global_lr": {"values": [0.999]},
-            "seed": {"values": [103, 104, 105, 106, 107, 108, 109, 110]},
-            "clip": {"values": [1.0, 0.1]},
-            # "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
-            "noise_multiplier": {"values": [0.0, 0.5, 1.0]},
-            "calibration_split": {"values": [0.0, 0.1, 0.2]},
-            "inner_steps": {"values": [1]},
+            "seed": {"values": [107]},
+            # "seed": {"values": [103, 104, 105, 106, 107, 108, 109, 110]},
             "basis-size": {"values": [44]},
             "gradients-history-size": {"values": [45]},
+            # "gradients-history-size": {"values": [45, 90]},
             "num_public_clients": {"values": [5]},
+            "clip": {"values": [30]},
+            # "clip": {"values": [0.01]},
+            # "noise_multiplier": {"values": [0.0, 0.1, 1.0, 10.0]},
+            "calibration_split": {"values": [0.0]},
+            # "calibration_split": {"values": [0.0, 0.1, 0.2]},
+            "noise_multiplier": {"values": [0.0, 0.5, 1.0]},
+            # "noise_multiplier": {"values": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]},
+            "inner_steps": {"values": [1]},
             "wd": {"values": [0.001]},
             "num_steps": {"values": [30]},
             "num_client_agg": {"values": [5]},
@@ -118,4 +122,4 @@ if __name__ == '__main__':
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,
-          train_fn=trainer_putEMG_gep_public_no_gp.train)
+          train_fn=trainer_putEMG_nonlinear_gep_public_private_no_gp.train)

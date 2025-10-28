@@ -343,11 +343,12 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
     distance_matrix: torch.Tensor = local_train.distance_matrix
 
+    device = get_device()
     local_net: torch.nn.Module = copy.deepcopy(net)
+    local_net.to(device)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
     criteria = torch.nn.CrossEntropyLoss()
-    device = get_device()
     train_avg_loss = 0.0
     for i in range(args.inner_steps):
         for k, batch in enumerate(train_loader):
@@ -357,9 +358,9 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
             # forward prop
             pred = local_net(x)
-            # loss = criteria(pred, Y)
-            loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
-                    torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
+            loss = criteria(pred, Y)
+            # loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
+            #         torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
             # loss = criteria(pred, distance_matrix[Y])
             # loss = torch.einsum('ij,ij->i', pred, distance_matrix[Y].float()).sum()
             # back prop
@@ -414,6 +415,7 @@ def eval_model(args, global_model, client_ids, loaders, plot_confusion_matrix=Fa
         assert 0 <= split_calib <= 1, f'Expected 0 <= split_calib <= 1. Got {split_calib}'
 
         local_net = copy.deepcopy(global_model)
+        local_net.to(device)
         if split_calib > 0:
 
             dataset = test_loader.dataset
