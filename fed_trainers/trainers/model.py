@@ -5,6 +5,39 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+class CNN_Relu(nn.Module):
+    def __init__(self):
+        super(CNN_Relu, self).__init__()
+        self.conv=nn.Sequential(nn.Conv2d(1, 16, 8, 2, padding=2),
+                                      nn.ReLU(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Conv2d(16, 32, 4, 2),
+                                      nn.ReLU(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Flatten(),
+                                      nn.Linear(32 * 4 * 4, 32),
+                                      nn.ReLU(),
+                                      nn.Linear(32, 10))
+    def forward(self,x):
+        x=self.conv(x)
+        return x
+
+class CNN_Tanh(nn.Module):
+    def __init__(self):
+        super(CNN_Tanh, self).__init__()
+        self.conv=nn.Sequential(nn.Conv2d(1, 16, 8, 2, padding=2),
+                                      nn.Tanh(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Conv2d(16, 32, 4, 2),
+                                      nn.Tanh(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Flatten(),
+                                      nn.Linear(32 * 4 * 4, 32),
+                                      nn.Tanh(),
+                                      nn.Linear(32, 10))
+    def forward(self,x):
+        x=self.conv(x)
+        return x
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
@@ -310,23 +343,25 @@ def get_model(args):
 
         assert args.model_name in ['CNNTarget', 'ResNet'], f'Unxpected model name {args.model_name}'
 
-        if args.model_name == 'CNNTarget':
-            model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
-        else:
-            model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
+        # if args.model_name == 'CNNTarget':
+        #     model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+        # else:
+        #     model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
 
-    elif args.data_name == 'keypressemg':
-        assert num_classes == 26, 'num_classes should be 26'
-        import keypressemg
-        from keypressemg.models.feature_model import FeatureModel
-        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True, depth_power=args.depth_power)
-    else:
-        assert args.data_name == 'putEMG', 'data_name should be putEMG'
-        assert num_classes == 8, 'num_classes should be 8'
-        import keypressemg
-        from keypressemg.models.feature_model import FeatureModel
-        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
-                             depth_power=args.depth_power)
+        model = CNN_Tanh()
+
+    # elif args.data_name == 'keypressemg':
+    #     assert num_classes == 26, 'num_classes should be 26'
+    #     import keypressemg
+    #     from keypressemg.models.feature_model import FeatureModel
+    #     model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True, depth_power=args.depth_power)
+    # else:
+    #     assert args.data_name == 'putEMG', 'data_name should be putEMG'
+    #     assert num_classes == 8, 'num_classes should be 8'
+    #     import keypressemg
+    #     from keypressemg.models.feature_model import FeatureModel
+    #     model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
+    #                          depth_power=args.depth_power)
         # model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
 
     initialize_weights(model)
