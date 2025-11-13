@@ -310,7 +310,7 @@ def compute_steps(epoch, batchsize, n_training):
     return int((epoch + 1) * n_training / batchsize)
 
 
-def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
+def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pbar_dict):
     """
     Run the full three-stage training process with DP and structured pruning:
     1. Stage 1: DP pretraining and importance accumulation
@@ -321,6 +321,7 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
         args: Namespace containing experiment arguments.
         model: PyTorch model to train.
         trainloader: DataLoader for training data.
+        noise_multiplier: Noise multiplier for DP training.
         pbar: tqdm progress bar object.
         pbar_dict: Dictionary to store progress bar values.
 
@@ -334,6 +335,9 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
     local_net.train()
     optimizer = get_optimizer(args, local_net)
     loss_fn = torch.nn.CrossEntropyLoss()
+    local_net = extend(local_net)
+    loss_fn = extend(loss_fn)
+    n_training = len(trainloader.dataset)
 
     total_start_time = time.time()
     times_list = []
@@ -347,8 +351,9 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
 
     pretrain_epochs = 15
 
-    importance_scores = [torch.zeros_like(p, device=device) for p in model.parameters()]
+    importance_scores = [torch.zeros_like(p, device=device) for p in local_net.parameters()]
     lr = args.lr
+    base_pruning_rate = args.pruning_rate
 
     for epoch in range(pretrain_epochs):
         print(f"[Stage 1] Epoch {epoch + 1}/{pretrain_epochs}")
@@ -356,7 +361,7 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
         for batch_idx, (batch_x, batch_y) in enumerate(trainloader):
             batch_x, batch_y = batch_x.to(device), batch_y.to(device)
             optimizer.zero_grad()
-            outputs = model(batch_x)
+            outputs = local_net(batch_x)
             loss = loss_fn(outputs, batch_y)
 
             with backpack(BatchGrad()):
@@ -364,14 +369,14 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
 
             B = batch_x.size(0)
             grad_norms = torch.zeros(B, device=device)
-            for param in model.parameters():
+            for param in local_net.parameters():
                 if not hasattr(param, "grad_batch"): continue
                 grad_batch = param.grad_batch.reshape(B, -1)
                 grad_norms += (grad_batch ** 2).sum(dim=1)
             grad_norms = grad_norms.sqrt()
             clip_factors = (args.clip / (grad_norms + 1e-6)).clamp(max=1.0)
 
-            for idx, param in enumerate(model.parameters()):
+            for idx, param in enumerate(local_net.parameters()):
                 if not hasattr(param, "grad_batch"): continue
                 grad_batch = param.grad_batch.reshape(B, -1)
                 clipped = grad_batch * clip_factors.view(-1, 1)
@@ -384,10 +389,10 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
                 noisy_grad = clipped_mean + noise / B
                 param.data -= lr * noisy_grad
 
-        train_loss, train_acc = evaluate_on_trainset(model, trainloader, loss_fn, device)
-        test_loss, test_acc, best_acc = test(epoch, model, testloader, loss_fn, use_cuda, best_acc, args, mask=None)
-        eps_spent = get_epsilon(args.batchsize / args.n_training, (epoch + 1) * len(trainloader), noise_multiplier,
-                                args.delta)
+        # train_loss, train_acc = evaluate_on_trainset(model, trainloader, loss_fn, device)
+        # test_loss, test_acc, best_acc = test(epoch, model, testloader, loss_fn, use_cuda, best_acc, args, mask=None)
+        # eps_spent = get_epsilon(args.batch_size / n_training, (epoch + 1) * len(trainloader), noise_multiplier,
+        #                         args.delta)
         # log_results(results_file, 'Stage 1 (Pretrain)', epoch + 1, train_loss, train_acc, test_loss, test_acc,
         #             eps_spent, sigma=noise_multiplier)
 
@@ -397,11 +402,10 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
 
     # === Stage 2: Progressive Mask Training (iterative structure release) ===
     print("==> Stage 2: Progressive mask training...")
-    print("==> Stage 2: Progressive mask training...")
     start_time = time.time()
 
     # Initialize AdaCliP vectors for coordinate-wise adaptive clipping
-    total_dim = sum(p.numel() for p in model.parameters())
+    total_dim = sum(p.numel() for p in local_net.parameters())
     m_mat = torch.zeros(total_dim, device=device)
     s_mat = torch.ones(total_dim, device=device)
 
@@ -412,8 +416,8 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
 
     for epoch in range(len(release_schedule)):
         current_mask = scheduler.step(epoch)
-        model, _ = local_train(
-            model, trainloader, loss_fn, lr=args.lr, epochs=1,
+        local_net, _ = local_train(
+            local_net, trainloader, loss_fn, lr=args.lr, epochs=1,
             dp=True, noise_multiplier=noise_multiplier,
             clip_norm=args.clip, use_mask=True,
             pretrain_epochs=0,
@@ -427,15 +431,15 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
             topk_ratio=base_pruning_rate
         )
 
-        train_loss, train_acc = evaluate_on_trainset(model, trainloader, loss_fn, device)
+        train_loss, train_acc = evaluate_on_trainset(local_net, trainloader, loss_fn, device)
         print(f"[Stage 2][Epoch {epoch}] Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.2f}%")
 
-        test_loss, test_acc, best_acc = test(epoch, model, testloader, loss_fn, use_cuda, best_acc, args, current_mask)
+        # test_loss, test_acc, best_acc = test(epoch, local_net, testloader, loss_fn, use_cuda, best_acc, args, current_mask)
 
-        steps_so_far = compute_steps(pretrain_epochs + epoch, args.batchsize, args.n_training)
-        eps_spent = get_epsilon(args.batchsize / args.n_training, steps_so_far, noise_multiplier, args.delta)
-        log_results(results_file, 'Stage 2', epoch, train_loss, train_acc, test_loss, test_acc, eps_spent,
-                    sigma=noise_multiplier)
+        steps_so_far = compute_steps(pretrain_epochs + epoch, args.batch_size, n_training)
+        # eps_spent = get_epsilon(args.batch_size / n_training, steps_so_far, noise_multiplier, args.delta)
+        # log_results(results_file, 'Stage 2', epoch, train_loss, train_acc, test_loss, test_acc, eps_spent,
+        #             sigma=noise_multiplier)
 
     elapsed = time.time() - start_time
     times_list.append(("Stage 2 (Progressive Mask)", elapsed))
@@ -446,11 +450,11 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
     start_time = time.time()
 
     final_mask = scheduler.current_mask
-    remaining_epochs = args.n_epoch - pretrain_epochs - len(release_schedule)
+    remaining_epochs = args.inner_steps - pretrain_epochs - len(release_schedule)
 
     for epoch in range(remaining_epochs):
-        model, _ = local_train(
-            model, trainloader, loss_fn, lr=args.lr, epochs=1,
+        local_net, _ = local_train(
+            local_net, trainloader, loss_fn, lr=args.lr, epochs=1,
             dp=True, noise_multiplier=noise_multiplier,
             clip_norm=args.clip, use_mask=True,
             pretrain_epochs=0,
@@ -464,15 +468,15 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
             topk_ratio=base_pruning_rate
         )
 
-        train_loss, train_acc = evaluate_on_trainset(model, trainloader, loss_fn, device)
+        train_loss, train_acc = evaluate_on_trainset(local_net, trainloader, loss_fn, device)
         print(f"[Stage 3][Epoch {epoch}] Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.2f}%")
 
-        test_loss, test_acc, best_acc = test(epoch, model, testloader, loss_fn, use_cuda, best_acc, args, final_mask)
+        # test_loss, test_acc, best_acc = test(epoch, local_net, testloader, loss_fn, use_cuda, best_acc, args, final_mask)
 
-        steps_so_far = compute_steps(pretrain_epochs + len(release_schedule) + epoch, args.batchsize, args.n_training)
-        eps_spent = get_epsilon(args.batchsize / args.n_training, steps_so_far, noise_multiplier, args.delta)
-        log_results(results_file, 'Stage 3', epoch, train_loss, train_acc, test_loss, test_acc, eps_spent,
-                    sigma=noise_multiplier)
+        steps_so_far = compute_steps(pretrain_epochs + len(release_schedule) + epoch, args.batch_size, n_training)
+        # eps_spent = get_epsilon(args.batch_size / n_training, steps_so_far, noise_multiplier, args.delta)
+        # log_results(results_file, 'Stage 3', epoch, train_loss, train_acc, test_loss, test_acc, eps_spent,
+        #             sigma=noise_multiplier)
 
     elapsed = time.time() - start_time
     times_list.append(("Stage 3 (Fixed Mask)", elapsed))
@@ -482,10 +486,10 @@ def local_train_with_pruning(args, model, trainloader, pbar, pbar_dict):
     total_elapsed = time.time() - total_start_time
     print(f" Total training time: {total_elapsed:.2f} seconds ({total_elapsed / 60:.2f} minutes).")
 
-    save_times(times_list, results_file.replace('results.csv', 'times.csv'))
-    save_summary(best_acc, eps_spent, total_elapsed, results_file.replace('results.csv', 'summary.txt'))
+    # save_times(times_list, results_file.replace('results.csv', 'times.csv'))
+    # save_summary(best_acc, eps_spent, total_elapsed, results_file.replace('results.csv', 'summary.txt'))
 
-    return best_acc
+    return local_net, train_loss
 
 def train(args, dataloaders):
     logger = logging.getLogger(args.log_name)
@@ -533,7 +537,7 @@ def train(args, dataloaders):
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
-            local_net, train_avg_loss = local_train(args, net, train_loader,
+            local_net, train_avg_loss = local_train_with_pruning(args, net, train_loader, noise_multiplier=args.noise_multiplier,
                                                     pbar=step_iter, pbar_dict=pbar_dict)
 
             # get client grads

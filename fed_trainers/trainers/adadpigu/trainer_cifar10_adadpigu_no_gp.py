@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--block-size", type=int, default=3)
     parser.add_argument("--model-name", type=str, choices=['CNN_Tanh', 'CNNTarget', 'ResNet'], default='ResNet')
     parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
-    parser.add_argument('--embed-dim', type=int, default=64)
+    parser.add_argument('--embed-dim', type=int, default=16)
     parser.add_argument('--use-gp', type=str2bool, default=False)
 
     parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
@@ -45,13 +45,13 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument('--n_epoch', default=500, type=int, help='total number of epochs')
+    parser.add_argument("--num-steps", type=int, default=100)
     parser.add_argument('--momentum', default=0.9, type=float, help='value of momentum')
     # parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=5, help="number of inner steps")
+    parser.add_argument("--inner-steps", type=int, default=30, help="number of inner steps")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
@@ -105,7 +105,7 @@ def main():
                                                                             "to be multiplied by clip")
     parser.add_argument('--eps', default=4., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
-    parser.add_argument('--prunnig_rate', default=0.1, type=float, help='aaddpigu prinning rate')
+    parser.add_argument('--pruning_rate', default=0.1, type=float, help='adadpigu pruning rate')
 
     args = parser.parse_args()
 
@@ -127,7 +127,7 @@ def main():
     print("==> Starting mask-DP training experiments...")
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    base_dir = f'results_maskdp_{args.dataset}_eps{args.eps}_{timestamp}'
+    base_dir = f'results_maskdp_{args.data_name}_eps{args.eps}_{timestamp}'
     os.makedirs(base_dir, exist_ok=True)
 
     trainloaders: tuple[DataLoader, DataLoader, DataLoader] = get_dataloaders(args)
