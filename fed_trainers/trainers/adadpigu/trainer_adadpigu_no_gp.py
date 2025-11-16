@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from tqdm import trange
 
-from adaclip import SparseAdaCliP, update_m_s
+from fed_trainers.trainers.adadpigu.adaclip import SparseAdaCliP, update_m_s
 from backpack import backpack, extend
 from backpack.extensions import BatchGrad
 from fed_trainers.trainers.adadpigu.utils import accumulate_importance, generate_topk_mask, MaskScheduler, save_args, \
@@ -328,6 +328,8 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
     Returns:
         best_acc: Best test accuracy achieved during the process.
     """
+    logger = logging.getLogger(args.log_name)
+    logger.setLevel(logging.ERROR)
 
     use_cuda = torch.cuda.is_available()
     device = get_device(cuda=use_cuda)
@@ -346,17 +348,17 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
     best_acc = 0
 
     # === Stage 1: DP Pretraining & Importance Accumulation ===
-    print("==> Stage 1: Pretraining...")
+    logger.info("==> Stage 1: Pretraining...")
     start_time = time.time()
 
-    pretrain_epochs = 15
+    pretrain_epochs = 5
 
     importance_scores = [torch.zeros_like(p, device=device) for p in local_net.parameters()]
     lr = args.lr
     base_pruning_rate = args.pruning_rate
 
     for epoch in range(pretrain_epochs):
-        print(f"[Stage 1] Epoch {epoch + 1}/{pretrain_epochs}")
+        logger.info(f"[Stage 1] Epoch {epoch + 1}/{pretrain_epochs}")
         local_net.train()
         for batch_idx, (batch_x, batch_y) in enumerate(trainloader):
             batch_x, batch_y = batch_x.to(device), batch_y.to(device)
@@ -389,7 +391,14 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
                 noisy_grad = clipped_mean + noise / B
                 param.data -= lr * noisy_grad
 
-        # train_loss, train_acc = evaluate_on_trainset(model, trainloader, loss_fn, device)
+        train_loss, train_acc = evaluate_on_trainset(model, trainloader, loss_fn, device)
+        pbar_dict.update({"Inner Stage": "1".zfill(3),
+                          "Inner Step": f'{epoch}'.zfill(3),
+                          # "Batch": f'{(k + 1)}'.zfill(3),
+                          # "Train Loss": f'{train_loss:.4f}',
+                          # "Train Acc": f'{train_acc:.4f}'})
+                          })
+        pbar.set_postfix(pbar_dict)
         # test_loss, test_acc, best_acc = test(epoch, model, testloader, loss_fn, use_cuda, best_acc, args, mask=None)
         # eps_spent = get_epsilon(args.batch_size / n_training, (epoch + 1) * len(trainloader), noise_multiplier,
         #                         args.delta)
@@ -398,10 +407,10 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
 
     elapsed = time.time() - start_time
     times_list.append(("Stage 1 (Pretrain)", elapsed))
-    print(f" Stage 1 done in {elapsed:.2f} seconds.")
+    logger.info(f" Stage 1 done in {elapsed:.2f} seconds.")
 
     # === Stage 2: Progressive Mask Training (iterative structure release) ===
-    print("==> Stage 2: Progressive mask training...")
+    logger.info("==> Stage 2: Progressive mask training...")
     start_time = time.time()
 
     # Initialize AdaCliP vectors for coordinate-wise adaptive clipping
@@ -432,7 +441,14 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
         )
 
         train_loss, train_acc = evaluate_on_trainset(local_net, trainloader, loss_fn, device)
-        print(f"[Stage 2][Epoch {epoch}] Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.2f}%")
+        logger.info(f"[Stage 2][Epoch {epoch}] Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.2f}%")
+        pbar_dict.update({"Inner Stage": "2".zfill(3),
+                          "Inner Step": f'{epoch}'.zfill(3),
+                          # "Batch": f'{(k + 1)}'.zfill(3),
+                          # "Train Loss": f'{train_loss:.4f}',
+                          # "Train Acc": f'{train_acc:.4f}'})
+                          })
+        pbar.set_postfix(pbar_dict)
 
         # test_loss, test_acc, best_acc = test(epoch, local_net, testloader, loss_fn, use_cuda, best_acc, args, current_mask)
 
@@ -443,10 +459,10 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
 
     elapsed = time.time() - start_time
     times_list.append(("Stage 2 (Progressive Mask)", elapsed))
-    print(f" Stage 2 done in {elapsed:.2f} seconds.")
+    logger.info(f" Stage 2 done in {elapsed:.2f} seconds.")
 
     # === Stage 3: Fixed Mask Finetuning (sparse structure fixed) ===
-    print("==> Stage 3: Fixed mask finetuning...")
+    logger.info("==> Stage 3: Fixed mask finetuning...")
     start_time = time.time()
 
     final_mask = scheduler.current_mask
@@ -469,7 +485,14 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
         )
 
         train_loss, train_acc = evaluate_on_trainset(local_net, trainloader, loss_fn, device)
-        print(f"[Stage 3][Epoch {epoch}] Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.2f}%")
+        logger.info(f"[Stage 3][Epoch {epoch}] Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.2f}%")
+        pbar_dict.update({"Inner Stage": "3".zfill(3),
+                          "Inner Step": f'{epoch}'.zfill(3),
+                          # "Batch": f'{(k + 1)}'.zfill(3),
+                          # "Train Loss": f'{train_loss:.4f}',
+                          # "Train Acc": f'{train_acc:.4f}'})
+                          })
+        pbar.set_postfix(pbar_dict)
 
         # test_loss, test_acc, best_acc = test(epoch, local_net, testloader, loss_fn, use_cuda, best_acc, args, final_mask)
 
@@ -480,11 +503,11 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
 
     elapsed = time.time() - start_time
     times_list.append(("Stage 3 (Fixed Mask)", elapsed))
-    print(f" Stage 3 done in {elapsed:.2f} seconds.")
+    logger.info(f" Stage 3 done in {elapsed:.2f} seconds.")
 
     # === Final Summary ===
     total_elapsed = time.time() - total_start_time
-    print(f" Total training time: {total_elapsed:.2f} seconds ({total_elapsed / 60:.2f} minutes).")
+    logger.info(f" Total training time: {total_elapsed:.2f} seconds ({total_elapsed / 60:.2f} minutes).")
 
     # save_times(times_list, results_file.replace('results.csv', 'times.csv'))
     # save_summary(best_acc, eps_spent, total_elapsed, results_file.replace('results.csv', 'summary.txt'))

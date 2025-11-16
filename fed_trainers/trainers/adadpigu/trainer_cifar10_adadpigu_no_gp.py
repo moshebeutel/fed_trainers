@@ -51,7 +51,7 @@ def main():
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=30, help="number of inner steps")
+    parser.add_argument("--inner-steps", type=int, default=15, help="number of inner steps")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
@@ -94,10 +94,10 @@ def main():
     #############################
 
     parser.add_argument("--num-clients", type=int, default=500, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=490, help="number of private clients")
-    parser.add_argument("--num-public-clients", type=int, default=10, help="number of public clients")
+    parser.add_argument("--num-private-clients", type=int, default=500, help="number of private clients")
+    parser.add_argument("--num-public-clients", type=int, default=0, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
-    parser.add_argument("--num-client-agg", type=int, default=100, help="number of clients per step")
+    parser.add_argument("--num-client-agg", type=int, default=10, help="number of clients per step")
 
     parser.add_argument('--private', action='store_true', help='enable differential privacy')
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")

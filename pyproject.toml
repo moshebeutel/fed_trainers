@@ -25,8 +25,13 @@ backpack-for-pytorch = "^1.7.1"
 opacus = "^1.5.4"
 
 [tool.poetry.scripts]
-sweeper_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'
-sweeper_cifar10_gep_public = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_public_no_gp:main'
+sweep_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'
+sweep_cifar10_gep_public = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_public_no_gp:main'
+
+# Default parametrs train
+train_cifar10_adadpigu = 'fed_trainers.trainers.adadpigu.trainer_cifar10_adadpigu_no_gp:main'
+
+
 
 [build-system]
 requires = ["poetry-core"]

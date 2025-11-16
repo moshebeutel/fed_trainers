@@ -119,7 +119,7 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp-name", type=str, default='Sweep_GEP_PUBLIC_putEMG', help="suffix for exp name")
+    parser.add_argument("--exp-name", type=str, default='Sweep_GEP_PUBLIC_CIFAR10', help="suffix for exp name")
     parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -156,7 +156,7 @@ def main():
     parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
-    parser.add_argument("--log-name", type=str, default="Sweep_GEP_PUBLIC_putEMG",
+    parser.add_argument("--log-name", type=str, default="Sweep_GEP_PUBLIC_CIFAR10",
                         help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv-name", type=str, default="putemg_gep_public.csv", help="dir path for csv file")
