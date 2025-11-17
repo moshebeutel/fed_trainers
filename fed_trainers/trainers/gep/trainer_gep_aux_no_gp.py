@@ -51,7 +51,7 @@ def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
 
         pbar_dict.update({"Inner Step": f'1'.zfill(3),
                           "Batch": f'{(k + 1)}'.zfill(3),
-                          "Train Current Loss": f'{loss.item():5.2f}'})
+                          "Train Current Loss": f'{loss.item():5.2f}'.zfill(3)})
         pbar.set_postfix(pbar_dict)
 
     # end of for k, batch in enumerate(train_loader):
@@ -152,7 +152,7 @@ def train(args, dataloaders):
                               'Auxiliary_Private?': 'Private'.center(9),
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
-                              'Train Current Loss': f'{0.:.4f}',
+                              'Train Current Loss': f'{0.:.4f}.zfill(3)',
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                               'Reconstruction Similarity': f'{reconstruction_similarity:.4f}',
                               'Reconstruction Error': f'{reconstruction_error:.4f}',

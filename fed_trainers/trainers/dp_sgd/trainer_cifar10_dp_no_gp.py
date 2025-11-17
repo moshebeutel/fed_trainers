@@ -4,8 +4,9 @@ from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
-from trainer_sgd_dp_no_gp import train
-from fed_trainers.trainers.utils import set_logger, set_seed, str2bool
+from fed_trainers.trainers.dp_sgd.trainer_sgd_dp_no_gp import train
+from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
+    compute_sample_probability
 
 
 def get_dataloaders(args):
@@ -18,8 +19,7 @@ def get_dataloaders(args):
 
     return train_loaders, val_loaders, test_loaders
 
-if __name__ == '__main__':
-
+def main():
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
     data_name = 'cifar10'
     ##################################
@@ -35,17 +35,20 @@ if __name__ == '__main__':
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=20)
+    parser.add_argument("--num-epochs", type=int, default=15)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=5, help="number of inner steps")
+    parser.add_argument("--inner-steps", type=int, default=15, help="number of inner steps")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
+    parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
+    parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
+
     parser.add_argument("--calibration_split", type=float, default=0.2,
                         help="split ratio of the test set for calibration before testing")
     #############################
@@ -59,8 +62,8 @@ if __name__ == '__main__':
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
+    parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval-after", type=int, default=1, help="eval only after X selected epochs")
     parser.add_argument("--log-every", type=int, default=1, help="log every X selected epochs")
     parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
@@ -98,6 +101,20 @@ if __name__ == '__main__':
     logger.debug(f"Args: {args}")
     set_seed(args.seed)
 
+    # trainloaders: tuple[DataLoader, DataLoader, DataLoader] = get_dataloaders(args)
+    #
+    # n_training = len(trainloaders[0].dataset)
+    q = compute_sample_probability(args)
+    steps = compute_steps(args)
+
+    logger.info(f"steps: {steps}")
+    logger.info(f"sample probability (q): {q}")
+
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+
+    logger.info(f"noise_multiplier: {args.noise_multiplier}")
+    logger.info(f"actual_epsilon: {actual_epsilon}")
+
     exp_name = f'SGD-DP_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 
     # Weights & Biases
@@ -106,3 +123,7 @@ if __name__ == '__main__':
         wandb.config.update(args)
 
     train(args, get_dataloaders(args))
+
+
+if __name__ == '__main__':
+    main()

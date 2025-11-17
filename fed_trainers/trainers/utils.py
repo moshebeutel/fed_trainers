@@ -377,7 +377,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
             pbar_dict.update({"Inner Step": f'{(i + 1)}'.zfill(3),
                               "Batch": f'{(k + 1)}'.zfill(3),
-                              "Train Current Loss": f'{loss.item():5.2f}'})
+                              "Train Current Loss": f'{loss.item():5.2f}'.zfill(3)})
             pbar.set_postfix(pbar_dict)
 
         # end of for k, batch in enumerate(train_loader):
@@ -698,3 +698,12 @@ def get_sigma(q, T, eps, delta, init_sigma=10, interval=1., rgp=True):
     interval /= 10
     cur_sigma, previous_eps = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
     return cur_sigma, previous_eps
+
+
+def compute_steps(args):
+    steps = int((args.num_epochs + 1) * args.num_clients / args.num_client_agg)
+    return steps
+
+
+def compute_sample_probability(args):
+    return args.num_client_agg / args.num_clients

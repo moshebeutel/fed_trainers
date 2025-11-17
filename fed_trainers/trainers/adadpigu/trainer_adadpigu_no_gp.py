@@ -1,7 +1,6 @@
 import copy
 import csv
 import logging
-import os
 import time
 from collections import OrderedDict
 
@@ -12,12 +11,13 @@ from tqdm import trange
 from fed_trainers.trainers.adadpigu.adaclip import SparseAdaCliP, update_m_s
 from backpack import backpack, extend
 from backpack.extensions import BatchGrad
-from fed_trainers.trainers.adadpigu.utils import accumulate_importance, generate_topk_mask, MaskScheduler, save_args, \
-    evaluate_on_trainset, save_times, save_summary
+from fed_trainers.trainers.adadpigu.utils import accumulate_importance, generate_topk_mask, MaskScheduler, \
+    evaluate_on_trainset
 from fed_trainers.trainers.model import get_model
 from fed_trainers.trainers.rdp_accountant import compute_rdp, get_privacy_spent
-from fed_trainers.trainers.utils import get_sigma, get_clients, get_device, flatten_tensor, \
-    load_aggregated_grads_to_global_net, eval_model, log2wandb, wandb_plot_confusion_matrix, update_frame, get_optimizer
+from fed_trainers.trainers.utils import get_clients, get_device, flatten_tensor, \
+    load_aggregated_grads_to_global_net, eval_model, log2wandb, wandb_plot_confusion_matrix, update_frame, \
+    get_optimizer, compute_steps
 
 
 def initialize_results_file(results_file, base_pruning_rate):
@@ -306,10 +306,6 @@ def test(epoch, net, testloader, loss_func, use_cuda, best_acc, args, mask=None)
     return test_loss / (batch_idx + 1), acc, best_acc
 
 
-def compute_steps(epoch, batchsize, n_training):
-    return int((epoch + 1) * n_training / batchsize)
-
-
 def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pbar_dict):
     """
     Run the full three-stage training process with DP and structured pruning:
@@ -555,7 +551,7 @@ def train(args, dataloaders):
                               'Client': f'{c_id}'.zfill(3),
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
-                              'Train Current Loss': f'{0.:.4f}',
+                              'Train Current Loss': f'{0.:.4f}'.zfill(3),
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
@@ -625,7 +621,7 @@ def train(args, dataloaders):
                 'Client': f'{c_id}'.zfill(3),
                 'Client Number in Step': f'{(j + 1)}'.zfill(3),
                 # 'Train Avg Loss': f'{train_avg_loss:.4f}',
-                # 'Train Current Loss': f'{0.:.4f}',
+                # 'Train Current Loss': f'{0.:.4f}'.zfill(3).zfill(3),
                 # 'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                 # 'Val Avg Acc': f'{val_avg_acc:.4f}',
                 # 'Best Avg Acc': f'{best_acc:.4f}'})

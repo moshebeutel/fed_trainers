@@ -9,7 +9,8 @@ from torch.utils.data import DataLoader
 
 from fed_trainers.datasets.dataset import gen_random_loaders
 from fed_trainers.trainers.adadpigu.trainer_adadpigu_no_gp import train
-from fed_trainers.trainers.utils import set_logger, set_seed, str2bool
+from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
+    compute_sample_probability
 
 
 def get_dataloaders(args):
@@ -45,7 +46,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=100)
+    parser.add_argument("--num-epochs", type=int, default=15)
     parser.add_argument('--momentum', default=0.9, type=float, help='value of momentum')
     # parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--optimizer", type=str, default='sgd',
@@ -103,7 +104,7 @@ def main():
     parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument('--eps', default=4., type=float, help='privacy parameter epsilon')
+    parser.add_argument('--eps', default=1., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument('--pruning_rate', default=0.1, type=float, help='adadpigu pruning rate')
 
@@ -114,6 +115,22 @@ def main():
     logger = set_logger(args)
     logger.debug(f"Args: {args}")
     set_seed(args.seed)
+
+
+    # trainloaders: tuple[DataLoader, DataLoader, DataLoader] = get_dataloaders(args)
+    #
+    # n_training = len(trainloaders[0].dataset)
+    q = compute_sample_probability(args)
+    steps = compute_steps(args)
+
+    logger.info(f"steps: {steps}")
+    logger.info(f"sample probability (q): {q}")
+
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+
+    logger.info(f"noise_multiplier: {args.noise_multiplier}")
+    logger.info(f"actual_epsilon: {actual_epsilon}")
+
 
     exp_name = f'SGD-DP_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 

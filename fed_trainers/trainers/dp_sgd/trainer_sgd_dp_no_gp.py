@@ -4,9 +4,11 @@ from collections import OrderedDict
 import numpy as np
 import torch
 from tqdm import trange
+
 from fed_trainers.trainers.model import get_model
-from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
-    load_aggregated_grads_to_global_net, wandb_plot_confusion_matrix
+from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, \
+    log2wandb, \
+    load_aggregated_grads_to_global_net, wandb_plot_confusion_matrix, compute_steps
 
 
 def train(args, dataloaders):
@@ -24,7 +26,8 @@ def train(args, dataloaders):
     train_loaders, val_loaders, test_loaders = dataloaders
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
-    step_iter = trange(args.num_steps)
+    num_steps = compute_steps(args)
+    step_iter = trange(num_steps)
     pbar_dict = {'Step': '0', 'Client': '0',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
@@ -40,6 +43,8 @@ def train(args, dataloaders):
         # Sample several clients
         client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
 
+        logger.debug(f'Client ids in step {step}: {client_ids_step}')
+
         # iterate over each client
         train_avg_loss = 0
         for j, c_id in enumerate(client_ids_step):
@@ -50,7 +55,7 @@ def train(args, dataloaders):
                               'Client': f'{c_id}'.zfill(3),
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
-                              'Train Current Loss': f'{0.:.4f}',
+                              'Train Current Loss': f'{0.:.4f}'.zfill(3),
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
@@ -87,7 +92,7 @@ def train(args, dataloaders):
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
 
         # Evaluate model
-        if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:
+        if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == num_steps:
 
             val_results = eval_model(args, net, private_clients, val_loaders)
 
@@ -120,7 +125,7 @@ def train(args, dataloaders):
                 'Client': f'{c_id}'.zfill(3),
                 'Client Number in Step': f'{(j + 1)}'.zfill(3),
                 # 'Train Avg Loss': f'{train_avg_loss:.4f}',
-                # 'Train Current Loss': f'{0.:.4f}',
+                # 'Train Current Loss': f'{0.:.4f}'.zfill(3),
                 # 'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                 # 'Val Avg Acc': f'{val_avg_acc:.4f}',
                 # 'Best Avg Acc': f'{best_acc:.4f}'})

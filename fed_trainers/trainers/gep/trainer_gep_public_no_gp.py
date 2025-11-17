@@ -93,7 +93,7 @@ def train(args, dataloaders):
                               'Public_Private?': 'Private',
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
-                              'Train Current Loss': f'{0.:.4f}',
+                              'Train Current Loss': f'{0.:.4f}'.zfill(3),
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                               'Reconstruction Similarity': f'{reconstruction_similarity:.4f}',
                               'Val Avg Acc': f'{val_avg_acc:.4f}',

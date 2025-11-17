@@ -22,7 +22,6 @@ wandb = "^0.17.4"
 pandas = "^2.2"
 scikit-learn = "^1.7.2"
 backpack-for-pytorch = "^1.7.1"
-opacus = "^1.5.4"
 
 [tool.poetry.scripts]
 sweep_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'
@@ -30,6 +29,7 @@ sweep_cifar10_gep_public = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_public
 
 # Default parametrs train
 train_cifar10_adadpigu = 'fed_trainers.trainers.adadpigu.trainer_cifar10_adadpigu_no_gp:main'
+train_cifar10_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_cifar10_dp_no_gp:main'
 
 
 
