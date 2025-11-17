@@ -31,6 +31,9 @@ sweep_cifar10_gep_public = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_public
 train_cifar10_adadpigu = 'fed_trainers.trainers.adadpigu.trainer_cifar10_adadpigu_no_gp:main'
 train_cifar10_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_cifar10_dp_no_gp:main'
 
+train_cifar10_gep_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_no_gp:main'
+train_cifar10_gep_public = 'fed_trainers.trainers.gep.trainer_cifar10_gep_public_no_gp:main'
+#train_cifar10_gep_public_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_public_private_no_gp:main'
 
 
 [build-system]
