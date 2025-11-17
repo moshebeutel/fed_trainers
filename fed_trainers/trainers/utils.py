@@ -546,7 +546,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
     new_row_dict = {
         'timestamp': pd.Timestamp.now(),
         'data_name': args.data_name,
-        'num-steps': args.num_steps,
+        'num-epochs': args.num_epochs,
         'optimizer': args.optimizer,
         'lr': args.lr,
         'num-client-agg': args.num_client_agg,
