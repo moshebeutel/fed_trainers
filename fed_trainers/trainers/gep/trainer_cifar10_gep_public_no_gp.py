@@ -5,7 +5,8 @@ import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
 from fed_trainers.trainers.gep import trainer_gep_public_no_gp
-from fed_trainers.trainers.utils import set_logger, set_seed, str2bool
+from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
+    compute_sample_probability
 
 
 def get_dataloaders(args):
@@ -24,8 +25,7 @@ def train(args):
     trainer_gep_public_no_gp.train(args, get_dataloaders(args))
 
 
-if __name__ == '__main__':
-
+def main():
     parser = argparse.ArgumentParser(description="GEP Public CIFAR10/100 Federated Learning")
     data_name = 'cifar10'
     ##################################
@@ -42,11 +42,11 @@ if __name__ == '__main__':
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=100)
+    parser.add_argument("--num-epochs", type=int, default=15)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
+    parser.add_argument("--inner-steps", type=int, default=15, help="number of inner steps")
     parser.add_argument("--num-client-agg", type=int, default=10, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
@@ -58,6 +58,10 @@ if __name__ == '__main__':
     parser.add_argument("--noise-multiplier-residual", type=float, default=1.0, help="residual part "
                                                                                      "dp noise factor"
                                                                                      " to be multiplied by clip")
+    parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
+    parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
+    parser.add_argument("--calibration_split", type=float, default=0.2,
+                        help="split ratio of the test set for calibration before testing")
 
     ##################################
     #       GEP args                 #
@@ -80,7 +84,8 @@ if __name__ == '__main__':
     parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
     parser.add_argument("--eval-after", type=int, default=25, help="eval only after X selected epochs")
     parser.add_argument("--log-every", type=int, default=1, help="log every X selected epochs")
-
+    parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
+                        help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="gep_private", help="dir path for logger file")
     parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
@@ -95,6 +100,8 @@ if __name__ == '__main__':
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
     parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
+    parser.add_argument("--num-classes", type=int, default=10, help="total number of clients")
+
 
     #############################
     #       Clients Args        #
@@ -122,3 +129,7 @@ if __name__ == '__main__':
         wandb.config.update(args)
 
     trainer_gep_public_no_gp.train(args, get_dataloaders(args))
+
+
+if __name__ == '__main__':
+    main()

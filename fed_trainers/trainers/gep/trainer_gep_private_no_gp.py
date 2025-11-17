@@ -5,10 +5,10 @@ from typing import Optional, List
 import numpy as np
 import torch
 from tqdm import trange
-from gep_utils import add_new_gradients_to_history, compute_subspace, embed_grad, project_back_embedding
+from fed_trainers.trainers.gep.gep_utils import add_new_gradients_to_history, compute_subspace, embed_grad, project_back_embedding
 from fed_trainers.trainers.model import get_model
 from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
-    load_aggregated_grads_to_global_net
+    load_aggregated_grads_to_global_net, compute_steps, get_sigma
 
 
 def train(args, dataloaders):
@@ -31,7 +31,8 @@ def train(args, dataloaders):
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
     reconstruction_similarity = 0.0
-    step_iter = trange(args.num_steps)
+    num_steps = compute_steps(args)
+    step_iter = trange(num_steps)
 
     pbar_dict = {'Step': '0', 'Client': '0',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
@@ -117,7 +118,7 @@ def train(args, dataloaders):
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, args.global_lr)
 
 
-        if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:
+        if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
