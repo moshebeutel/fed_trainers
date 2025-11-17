@@ -65,7 +65,7 @@ def main():
     parser.add_argument("--eval-every", type=int, default=1, help="eval every X selected epochs")
     parser.add_argument("--eval-after", type=int, default=1, help="eval only after X selected epochs")
     parser.add_argument("--log-every", type=int, default=1, help="log every X selected epochs")
-    parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
+    parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
@@ -91,7 +91,7 @@ def main():
     parser.add_argument("--num-private-clients", type=int, default=490, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=10, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
-    parser.add_argument("--num-client-agg", type=int, default=100, help="number of clients per step")
+    parser.add_argument("--num-client-agg", type=int, default=10, help="number of clients per step")
 
     args = parser.parse_args()
 

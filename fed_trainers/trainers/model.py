@@ -416,12 +416,12 @@ def get_model(args):
 
         assert args.model_name in ['CNNTarget', 'ResNet'], f'Unxpected model name {args.model_name}'
 
-        # if args.model_name == 'CNNTarget':
-        #     model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
-        # else:
-        #     model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
+        if args.model_name == 'CNNTarget':
+            model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+        else:
+            model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
 
-        model = CIFAR10_CNN_Tanh(3)
+        # model = CIFAR10_CNN_Tanh(3)
 
     # elif args.data_name == 'keypressemg':
     #     assert num_classes == 26, 'num_classes should be 26'
