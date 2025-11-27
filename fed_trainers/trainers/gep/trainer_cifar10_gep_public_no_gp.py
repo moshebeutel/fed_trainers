@@ -121,7 +121,22 @@ def main():
     logger.info(f"Args: {args}")
     set_seed(args.seed)
 
+    # trainloaders: tuple[DataLoader, DataLoader, DataLoader] = get_dataloaders(args)
+    #
+    # n_training = len(trainloaders[0].dataset)
+    q = compute_sample_probability(args)
+    steps = compute_steps(args)
+
+    logger.info(f"steps: {steps}")
+    logger.info(f"sample probability (q): {q}")
+
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+    logger.info(f"noise_multiplier: {args.noise_multiplier}")
+    logger.info(f"actual_epsilon: {actual_epsilon}")
+
     exp_name = f'GEP_PUBLIC_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
+
+
 
     # Weights & Biases
     if args.wandb:

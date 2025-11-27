@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import torch
 from tqdm import trange
-from gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
+from fed_trainers.trainers.gep.gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
     compute_subspace
 from fed_trainers.trainers.model import get_model
 from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
@@ -153,7 +153,7 @@ def train(args, dataloaders):
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
 
         # Evaluate model
-        if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == args.num_steps:
+        if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
