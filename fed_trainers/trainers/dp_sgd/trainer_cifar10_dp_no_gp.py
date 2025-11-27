@@ -35,7 +35,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-epochs", type=int, default=15)
+    parser.add_argument("--n_epochs", type=int, default=15)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
@@ -119,7 +119,7 @@ def main():
 
     # Weights & Biases
     if args.wandb:
-        wandb.init(project="emg_gp_moshe", name=exp_name)
+        wandb.init(project="key_press_emg_toronto", name=exp_name)
         wandb.config.update(args)
 
     train(args, get_dataloaders(args))

@@ -546,7 +546,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
     new_row_dict = {
         'timestamp': pd.Timestamp.now(),
         'data_name': args.data_name,
-        'num-epochs': args.num_epochs,
+        'num-epochs': args.n_epochs,
         'optimizer': args.optimizer,
         'lr': args.lr,
         'num-client-agg': args.num_client_agg,
@@ -701,7 +701,7 @@ def get_sigma(q, T, eps, delta, init_sigma=10, interval=1., rgp=True):
 
 
 def compute_steps(args):
-    steps = int((args.num_epochs + 1) * args.num_clients / args.num_client_agg)
+    steps = int((args.n_epochs + 1) * args.num_clients / args.num_client_agg)
     return steps
 
 

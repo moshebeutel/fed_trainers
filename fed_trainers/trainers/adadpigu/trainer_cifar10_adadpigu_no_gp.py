@@ -46,7 +46,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-epochs", type=int, default=15)
+    parser.add_argument("--n_epochs", type=int, default=15)
     parser.add_argument('--momentum', default=0.9, type=float, help='value of momentum')
     # parser.add_argument("--num-steps", type=int, default=20)
     parser.add_argument("--optimizer", type=str, default='sgd',

@@ -42,7 +42,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-epochs", type=int, default=15)
+    parser.add_argument("--n_epochs", type=int, default=15)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
@@ -136,7 +136,7 @@ def main():
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    exp_name = f'GEP_PUBLIC_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
+    exp_name = f'GEP_PUBLIC_PRIVATE_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 
     # Weights & Biases
     if args.wandb:
