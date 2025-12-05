@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
-from fed_trainers.trainers.dp_sgd.trainer_sgd_dp_no_gp import train
+from fed_trainers.trainers.dp_sgd import trainer_sgd_dp_no_gp
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
     compute_sample_probability
 
@@ -19,6 +19,21 @@ def get_dataloaders(args):
 
     return train_loaders, val_loaders, test_loaders
 
+def train(args):
+    set_seed(args.seed)
+    q = compute_sample_probability(args)
+    steps = compute_steps(args)
+    logger = set_logger(args)
+    logger.info(f"steps: {steps}")
+    logger.info(f"sample probability (q): {q}")
+
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+
+    logger.info(f"noise_multiplier: {args.noise_multiplier}")
+    logger.info(f"actual_epsilon: {actual_epsilon}")
+
+    trainer_sgd_dp_no_gp.train(args, get_dataloaders(args))
+
 def main():
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
     data_name = 'cifar10'
@@ -27,7 +42,7 @@ def main():
     ##################################
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
-    parser.add_argument("--model-name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
+    parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
     parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
     parser.add_argument('--embed-dim', type=int, default=64)
     parser.add_argument('--use-gp', type=str2bool, default=False)
@@ -122,7 +137,7 @@ def main():
         wandb.init(project="key_press_emg_toronto", name=exp_name)
         wandb.config.update(args)
 
-    train(args, get_dataloaders(args))
+    train(args)
 
 
 if __name__ == '__main__':
