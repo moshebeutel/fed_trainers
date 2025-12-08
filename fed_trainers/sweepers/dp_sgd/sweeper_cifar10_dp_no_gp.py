@@ -23,7 +23,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=200)
+    parser.add_argument("--n_epochs", type=int, default=7)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
@@ -93,19 +93,21 @@ def main():
         "metric": {"goal": "maximize", "name": "test_best_acc"},
         "parameters": {
             "lr": {"values": [1e-2]},
-            "global_lr": {"values": [0.999]},
-            "eps": {"values": [8, 1]},
-            "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
-            "batch_size": {"values": [args.batch_size, args.batch_size * 2]},
+            "global_lr": {"values": [1.0]},
+            "eps": {"values": [-8]},
+            "noise_multiplier": {"values": [0.1, 0.15, 0.2]},
+            "seed": {"values": [args.seed]},
+            # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
+            "batch_size": {"values": [args.batch_size]},
             "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"values": [1e-2]},
+            "clip": {"values": [1.0, 1e-2]},
             "calibration_split": {"values": [0.0]},
             "inner_steps": {"values": [1]},
             "wd": {"values": [1e-4]},
             "n_epochs": {"values": [args.n_epochs]},
-            "optimizer": {"values": ["adam"]},
-            "num_client_agg": {"values": [25, 50]},
-            "model_name": {"values": ["CNNTarget"]},
+            "optimizer": {"values": ["adam", "sgd"]},
+            "num_client_agg": {"values": [10, 100]},
+            "model_name": {"values": ["ResNet", "CNNTarget"]},
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,

@@ -51,7 +51,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=15)
+    parser.add_argument("--n_epochs", type=int, default=5)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
@@ -69,7 +69,7 @@ def main():
                                                                                      " to be multiplied by clip")
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
-    parser.add_argument("--calibration_split", type=float, default=0.2,
+    parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
 
     ##################################
@@ -98,7 +98,7 @@ def main():
     parser.add_argument("--log_dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log_name", type=str, default="gep_private", help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv_name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default=f"{data_name}_gep_public.csv", help="dir path for csv file")
 
     #############################
     #       Dataset Args        #

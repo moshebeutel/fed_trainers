@@ -340,12 +340,12 @@ def get_distance_matrix(args) -> torch.Tensor:
 
 def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict):
     # initialize distance matrix
-    if not hasattr(local_train, 'distance_matrix'):
-        local_train.distance_matrix = get_distance_matrix(args)
+    # if not hasattr(local_train, 'distance_matrix'):
+    #     local_train.distance_matrix = get_distance_matrix(args)
 
     device = get_device()
-    distance_matrix: torch.Tensor = local_train.distance_matrix
-    distance_matrix = distance_matrix.to(device)
+    # distance_matrix: torch.Tensor = local_train.distance_matrix
+    # distance_matrix = distance_matrix.to(device)
     local_net: torch.nn.Module = copy.deepcopy(net)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
@@ -361,9 +361,9 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
             pred = local_net(x)
             # loss = criteria(pred, Y)
             # breakpoint()
-            loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
-                    torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
-            # loss = criteria(pred, distance_matrix[Y])
+            # loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
+            #         torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
+            loss = criteria(pred, Y)
             # loss = torch.einsum('ij,ij->i', pred, distance_matrix[Y].float()).sum()
             # back prop
             loss.backward()

@@ -60,12 +60,12 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
-    parser.add_argument("--noise_multiplier", type=float, default=1.0, help="dp noise factor "
+    parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
+    parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
-    parser.add_argument("--calibration_split", type=float, default=0.2,
+    parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
 
     ##################################
@@ -94,7 +94,7 @@ def main():
     parser.add_argument("--log_dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log_name", type=str, default="gep_private", help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv_name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default=f"{data_name}_gep_private.csv", help="dir path for csv file")
 
     #############################
     #       Dataset Args        #

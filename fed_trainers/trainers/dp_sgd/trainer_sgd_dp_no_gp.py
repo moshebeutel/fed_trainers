@@ -115,23 +115,23 @@ def train(args, dataloaders):
                       val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
                       val_loss_dict)
 
-    # calibration
-    for j, c_id in enumerate(private_clients):
-        calib_loader = val_loaders[c_id]
-
-        pbar_dict.update(
-            {
-                'Step': 'Cal',
-                'Client': f'{c_id}'.zfill(3),
-                'Client Number in Step': f'{(j + 1)}'.zfill(3),
-                # 'Train Avg Loss': f'{train_avg_loss:.4f}',
-                # 'Train Current Loss': f'{0.:.2f}'.zfill(5),
-                # 'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
-                # 'Val Avg Acc': f'{val_avg_acc:.4f}',
-                # 'Best Avg Acc': f'{best_acc:.4f}'})
-            })
-        local_net, clib_avg_loss = local_train(args, net, calib_loader,
-                                               pbar=step_iter, pbar_dict=pbar_dict)
+    # # calibration
+    # for j, c_id in enumerate(private_clients):
+    #     calib_loader = val_loaders[c_id]
+    #
+    #     pbar_dict.update(
+    #         {
+    #             'Step': 'Cal',
+    #             'Client': f'{c_id}'.zfill(3),
+    #             'Client Number in Step': f'{(j + 1)}'.zfill(3),
+    #             # 'Train Avg Loss': f'{train_avg_loss:.4f}',
+    #             # 'Train Current Loss': f'{0.:.2f}'.zfill(5),
+    #             # 'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
+    #             # 'Val Avg Acc': f'{val_avg_acc:.4f}',
+    #             # 'Best Avg Acc': f'{best_acc:.4f}'})
+    #         })
+    #     local_net, clib_avg_loss = local_train(args, net, calib_loader,
+    #                                            pbar=step_iter, pbar_dict=pbar_dict)
 
     # Test best model
     test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=True)
