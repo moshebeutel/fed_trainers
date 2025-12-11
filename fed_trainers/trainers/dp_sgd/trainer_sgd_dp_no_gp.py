@@ -134,15 +134,15 @@ def train(args, dataloaders):
     #                                            pbar=step_iter, pbar_dict=pbar_dict)
 
     # Test best model
-    test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=True)
+    test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=False)
 
     y_true_all, y_pred_all, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
     # _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
 
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
-    if args.wandb:
-        wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
+    # if args.wandb:
+    #     wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
 
 
     update_frame(args, dp_method='SGD_DP', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
