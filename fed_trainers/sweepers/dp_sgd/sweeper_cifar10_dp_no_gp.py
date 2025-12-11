@@ -18,26 +18,26 @@ def main():
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
     parser.add_argument("--num-classes", type=int, default=10, help="Number of unique labels")
-    parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
+    parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='CNNTarget')
 
     ##################################
     #       Optimization args        #
     ##################################
     parser.add_argument("--n_epochs", type=int, default=10)
-    parser.add_argument("--optimizer", type=str, default='adam',
+    parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.1, help="server learning rate")
+    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
+    parser.add_argument("--clip", type=float, default=5e-4, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
-    parser.add_argument("--calibration_split", type=float, default=0.2,
+    parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
@@ -93,22 +93,21 @@ def main():
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_best_acc"},
         "parameters": {
-            "lr": {"values": [1e-1]},
-            "global_lr": {"values": [1.0]},
-            "eps": {"values": [8]},
-            # "noise_multiplier": {"values": [0.2, 0.4, 0.6, 0.8]},
+            # "lr": {"values": [1e-1]},
+            # "global_lr": {"values": [1.0]},
+            # "eps": {"values": [8]},
             # "seed": {"values": [args.seed]},
             "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
-            "batch_size": {"values": [args.batch_size]},
-            "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"values": [5e-4, 1e-4]},
-            "calibration_split": {"values": [0.0]},
-            "inner_steps": {"values": [1]},
-            "wd": {"values": [1e-4]},
-            "n_epochs": {"values": [200, 150]},
-            "optimizer": {"values": ["sgd"]},
-            "num_client_agg": {"values": [10]},
-            "model_name": {"values": ["CNNTarget"]},
+            # "batch_size": {"values": [args.batch_size]},
+            # "num_public_clients": {"values": [args.num_public_clients]},
+            # "clip": {"values": [5e-4]},
+            # "calibration_split": {"values": [0.0]},
+            # "inner_steps": {"values": [1]},
+            # "wd": {"values": [1e-4]},
+            "n_epochs": {"values": [200, 250]},
+            # "optimizer": {"values": ["sgd"]},
+            # "num_client_agg": {"values": [10]},
+            # "model_name": {"values": ["CNNTarget"]},
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,
