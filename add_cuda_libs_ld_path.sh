@@ -1,0 +1,1 @@
+for dir in /home/dsi/beutelm/.cache/pypoetry/virtualenvs/simplegep-9GDS8J-3-py3.9/lib/python3.9/site-packages/nvidia/*/lib; do     export LD_LIBRARY_PATH=$dir:${LD_LIBRARY_PATH}; done;
