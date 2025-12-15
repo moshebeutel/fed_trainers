@@ -551,7 +551,7 @@ def train(args, dataloaders):
                               'Client': f'{c_id}'.zfill(3),
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
-                              'Train Current Loss': f'{0.:.4f}'.zfill(3),
+                              'Train Current Loss': f'{0.:.2f}'.zfill(5),
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
@@ -621,7 +621,7 @@ def train(args, dataloaders):
                 'Client': f'{c_id}'.zfill(3),
                 'Client Number in Step': f'{(j + 1)}'.zfill(3),
                 # 'Train Avg Loss': f'{train_avg_loss:.4f}',
-                # 'Train Current Loss': f'{0.:.4f}'.zfill(3).zfill(3),
+                # 'Train Current Loss': f'{0.:.2f}'.zfill(5),
                 # 'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                 # 'Val Avg Acc': f'{val_avg_acc:.4f}',
                 # 'Best Avg Acc': f'{best_acc:.4f}'})

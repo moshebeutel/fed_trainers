@@ -101,7 +101,7 @@ if __name__ == '__main__':
         "name": f"sgd_dp_keypressemg_{args.num_features}_{103}",
         # "name": f"sgd_dp_keypressemg_{args.num_features}_{103_110}",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "test_avg_acc"},
+        "metric": {"goal": "maximize", "name": "best_acc"},
         "parameters": {
             "lr": {"values": [0.01]},
             # "lr": {"values": [0.1]},

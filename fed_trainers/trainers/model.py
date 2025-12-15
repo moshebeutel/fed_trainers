@@ -5,6 +5,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from fed_trainers.trainers.utils import set_logger
+
+
 class CNN_Relu(nn.Module):
     def __init__(self):
         super(CNN_Relu, self).__init__()
@@ -417,11 +420,14 @@ def get_model(args):
         assert args.model_name in ['CNNTarget', 'ResNet'], f'Unxpected model name {args.model_name}'
 
         if args.model_name == 'CNNTarget':
-            model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+            # model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+            model = CIFAR10_CNN_Tanh(3)
         else:
             model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
 
         # model = CIFAR10_CNN_Tanh(3)
+        logger = set_logger(args)
+        logger.info(f'Number Parameters: {get_n_params(model)}')
 
     # elif args.data_name == 'keypressemg':
     #     assert num_classes == 26, 'num_classes should be 26'

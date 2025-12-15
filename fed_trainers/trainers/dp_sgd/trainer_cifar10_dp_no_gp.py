@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
-from fed_trainers.trainers.dp_sgd.trainer_sgd_dp_no_gp import train
+from fed_trainers.trainers.dp_sgd import trainer_sgd_dp_no_gp
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
     compute_sample_probability
 
@@ -19,6 +19,21 @@ def get_dataloaders(args):
 
     return train_loaders, val_loaders, test_loaders
 
+def train(args):
+    set_seed(args.seed)
+    q = compute_sample_probability(args)
+    steps = compute_steps(args)
+    logger = set_logger(args)
+    logger.info(f"steps: {steps}")
+    logger.info(f"sample probability (q): {q}")
+
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+
+    logger.info(f"noise_multiplier: {args.noise_multiplier}")
+    logger.info(f"actual_epsilon: {actual_epsilon}")
+
+    trainer_sgd_dp_no_gp.train(args, get_dataloaders(args))
+
 def main():
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
     data_name = 'cifar10'
@@ -27,7 +42,7 @@ def main():
     ##################################
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
-    parser.add_argument("--model-name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
+    parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
     parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
     parser.add_argument('--embed-dim', type=int, default=64)
     parser.add_argument('--use-gp', type=str2bool, default=False)
@@ -35,11 +50,12 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=15)
+    parser.add_argument("--n_epochs", type=int, default=200)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--inner-steps", type=int, default=15, help="number of inner steps")
+    parser.add_argument("--num-client-agg", type=int, default=25, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
@@ -49,7 +65,7 @@ def main():
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
 
-    parser.add_argument("--calibration_split", type=float, default=0.2,
+    parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
@@ -91,19 +107,16 @@ def main():
     parser.add_argument("--num-private-clients", type=int, default=490, help="number of private clients")
     parser.add_argument("--num-public-clients", type=int, default=10, help="number of public clients")
     parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
-    parser.add_argument("--num-client-agg", type=int, default=10, help="number of clients per step")
+
 
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
     logger = set_logger(args)
-    logger.debug(f"Args: {args}")
+    logger.info(f"Args: {args}")
     set_seed(args.seed)
 
-    # trainloaders: tuple[DataLoader, DataLoader, DataLoader] = get_dataloaders(args)
-    #
-    # n_training = len(trainloaders[0].dataset)
     q = compute_sample_probability(args)
     steps = compute_steps(args)
 
@@ -122,8 +135,7 @@ def main():
         wandb.init(project="key_press_emg_toronto", name=exp_name)
         wandb.config.update(args)
 
-    train(args, get_dataloaders(args))
-
+    train(args)
 
 if __name__ == '__main__':
     main()
