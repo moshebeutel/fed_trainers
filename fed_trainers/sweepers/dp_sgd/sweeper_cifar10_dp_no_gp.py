@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=5e-4, help="gradient clip")
@@ -89,7 +89,7 @@ def main():
 
     sweep_configuration = {
         # "name": f"SGD_DP_CIFAR10",
-        "name": f"SGD_DP_CIFAR10_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
+        "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_best_acc"},
         "parameters": {
@@ -104,7 +104,7 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1]},
             # "wd": {"values": [1e-4]},
-            "n_epochs": {"values": [200, 250]},
+            "n_epochs": {"values": [300]},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [10]},
             # "model_name": {"values": ["CNNTarget"]},

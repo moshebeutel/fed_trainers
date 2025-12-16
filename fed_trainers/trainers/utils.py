@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 import wandb
-from sklearn import metrics
+# from sklearn import metrics
 from torch.utils.data import DataLoader, random_split
 
 from fed_trainers.trainers.rdp_accountant import compute_rdp, get_privacy_spent
@@ -475,30 +475,31 @@ def eval_model(args, global_model, client_ids, loaders, plot_confusion_matrix=Fa
         loss_all += (running_loss / num_clients)
 
         eval_accuracy = (y_true == y_pred).sum().item() / running_samples
-        acc_score = metrics.accuracy_score(y_true, y_pred)
-        f1 = metrics.f1_score(y_true, y_pred, average='micro')
+        # acc_score = metrics.accuracy_score(y_true, y_pred)
+        # f1 = metrics.f1_score(y_true, y_pred, average='micro')
 
         acc_dict[f"P{client_id}"] = eval_accuracy
         loss_dict[f"P{client_id}"] = running_loss
-        acc_score_dict[f"P{client_id}"] = acc_score
-        f1s_dict[f"P{client_id}"] = f1
+        # acc_score_dict[f"P{client_id}"] = acc_score
+        # f1s_dict[f"P{client_id}"] = f1
 
     avg_acc = (y_true_all == y_pred_all).mean().item()
     avg_loss = loss_all
-    avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
+    # avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
     # if plot_confusion_matrix:
     #     import matplotlib.pyplot as plt
     #     cm = metrics.confusion_matrix(y_true_all, y_pred_all)
     #     disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
     #     disp.plot()
     #     plt.show()
-    avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
+    # avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
 
     if plot_confusion_matrix:
-        return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        # return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1,-1
     else:
-        return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
-    # return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        # return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1,-1
 
 
 def flatten_tensor(tensor_list) -> torch.Tensor:
@@ -585,12 +586,12 @@ def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, tr
             'train_loss': train_avg_loss,
             'test_avg_loss': val_avg_loss,
             'test_avg_acc': val_avg_acc,
-            'test_avg_acc_score': val_avg_acc_score,
-            'test_avg_f1': val_avg_f1,
+            # 'test_avg_acc_score': val_avg_acc_score,
+            # 'test_avg_f1': val_avg_f1,
             'test_best_loss': best_loss,
             'test_best_acc': best_acc,
-            'test_best_acc_score': best_acc_score,
-            'test_best_f1': best_f1,
+            # 'test_best_acc_score': best_acc_score,
+            # 'test_best_f1': best_f1,
             'test_best_epoch': best_epoch
         }
     )

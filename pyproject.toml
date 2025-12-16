@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.10"  # 3.9 in dsi servers
 torch = "^2.3.0"
 torchvision = "^0.18"
 tqdm = "^4.66.4"
@@ -32,6 +32,7 @@ sweep_cifar10_gep_private = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_no_gp
 train_cifar10_adadpigu = 'fed_trainers.trainers.adadpigu.trainer_cifar10_adadpigu_no_gp:main'
 train_cifar10_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_cifar10_dp_no_gp:main'
 
+train_cifar10_gep_user_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_user_private_no_gp:main'
 train_cifar10_gep_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_no_gp:main'
 train_cifar10_gep_public = 'fed_trainers.trainers.gep.trainer_cifar10_gep_public_no_gp:main'
 train_cifar10_gep_public_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_public_private_no_gp:main'
