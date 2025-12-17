@@ -98,7 +98,7 @@ def main():
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_best_acc"},
         "parameters": {
-            "lr": {"values": [1e-1]},
+            # "lr": {"values": [1e-1]},
             # "global_lr": {"values": [1.0]},
             "eps": {"values": [8, 1]},
             "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
