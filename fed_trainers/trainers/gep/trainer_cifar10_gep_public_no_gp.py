@@ -96,7 +96,7 @@ def main():
     parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log_dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log_name", type=str, default="gep_private", help="dir path for logger file")
+    parser.add_argument("--log_name", type=str, default="gep_ppublic", help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default="./csv", help="dir path for csv file")
     parser.add_argument("--csv_name", type=str, default=f"{data_name}_gep_public.csv", help="dir path for csv file")
 
@@ -141,8 +141,6 @@ def main():
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
     exp_name = f'GEP_PUBLIC_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
-
-
 
     # Weights & Biases
     if args.wandb:

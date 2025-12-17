@@ -26,6 +26,7 @@ backpack-for-pytorch = "^1.7.1"
 [tool.poetry.scripts]
 sweep_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'
 sweep_cifar10_gep_public = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_public_no_gp:main'
+sweep_cifar10_gep_public_private = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_public_private_no_gp:main'
 sweep_cifar10_gep_private = 'fed_trainers.sweepers.gep.sweeper_cifar10_gep_no_gp:main'
 
 # Default parametrs train

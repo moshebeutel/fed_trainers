@@ -94,7 +94,7 @@ def main():
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"GEP_PUBLIC_CIFAR10_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
+        "name": f"GEP_PUBLIC_PRIVATE_CIFAR10_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_best_acc"},
         "parameters": {
