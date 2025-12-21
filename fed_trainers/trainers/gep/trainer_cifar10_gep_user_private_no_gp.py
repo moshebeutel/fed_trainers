@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
-from fed_trainers.trainers.gep import trainer_gep_private_no_gp
+from fed_trainers.trainers.gep import trainer_gep_user_private_no_gp
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, compute_steps, \
     compute_sample_probability, get_sigma
 
@@ -32,7 +32,7 @@ def train(args):
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    trainer_gep_private_no_gp.train(args, get_dataloaders(args))
+    trainer_gep_user_private_no_gp.train(args, get_dataloaders(args))
 
 def main():
     parser = argparse.ArgumentParser(description="GEP Private CIFAR10/100 Federated Learning")
@@ -57,10 +57,10 @@ def main():
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=15, help="number of inner steps")
     parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
+    parser.add_argument("--clip", type=float, default=5e-4, help="gradient clip")
     parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
@@ -72,7 +72,7 @@ def main():
     #       GEP args                 #
     ##################################
     parser.add_argument("--gradients_history_size", type=int,
-                        default=500, help="amount of past gradients participating in embedding subspace computation")
+                        default=150, help="amount of past gradients participating in embedding subspace computation")
     parser.add_argument("--basis_size", type=int, default=50, help="number of basis vectors")
 
     #############################
@@ -92,9 +92,9 @@ def main():
     parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log_dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log_name", type=str, default="gep_private", help="dir path for logger file")
+    parser.add_argument("--log_name", type=str, default="gep_user_private", help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv_name", type=str, default=f"{data_name}_gep_private.csv", help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default=f"{data_name}_gep_user_private.csv", help="dir path for csv file")
 
     #############################
     #       Dataset Args        #
@@ -136,7 +136,7 @@ def main():
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    exp_name = f'GEP_PRIVATE_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
+    exp_name = f'GEP_USER_PRIVATE_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 
 
     # Weights & Biases

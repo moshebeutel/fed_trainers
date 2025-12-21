@@ -99,7 +99,7 @@ if __name__ == '__main__':
     sweep_configuration = {
         "name": f"sgd_dp_putEMG_{args.num_features}_103to110",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "test_avg_acc"},
+        "metric": {"goal": "maximize", "name": "best_acc"},
         "parameters": {
             "lr": {"values": [0.1]},
             "global_lr": {"values": [0.999]},

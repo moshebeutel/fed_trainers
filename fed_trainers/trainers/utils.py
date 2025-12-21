@@ -15,8 +15,10 @@ import numpy as np
 import pandas as pd
 import torch
 import wandb
-from sklearn import metrics
+# from sklearn import metrics
 from torch.utils.data import DataLoader, random_split
+
+from fed_trainers.trainers.rdp_accountant import compute_rdp, get_privacy_spent
 
 
 def set_seed(seed, cudnn_enabled=True):
@@ -338,12 +340,12 @@ def get_distance_matrix(args) -> torch.Tensor:
 
 def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict):
     # initialize distance matrix
-    if not hasattr(local_train, 'distance_matrix'):
-        local_train.distance_matrix = get_distance_matrix(args)
+    # if not hasattr(local_train, 'distance_matrix'):
+    #     local_train.distance_matrix = get_distance_matrix(args)
 
     device = get_device()
-    distance_matrix: torch.Tensor = local_train.distance_matrix
-    distance_matrix = distance_matrix.to(device)
+    # distance_matrix: torch.Tensor = local_train.distance_matrix
+    # distance_matrix = distance_matrix.to(device)
     local_net: torch.nn.Module = copy.deepcopy(net)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
@@ -359,9 +361,9 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
             pred = local_net(x)
             # loss = criteria(pred, Y)
             # breakpoint()
-            loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
-                    torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
-            # loss = criteria(pred, distance_matrix[Y])
+            # loss = (distance_matrix[Y, torch.argmax(pred, dim=1)] *
+            #         torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
+            loss = criteria(pred, Y)
             # loss = torch.einsum('ij,ij->i', pred, distance_matrix[Y].float()).sum()
             # back prop
             loss.backward()
@@ -375,7 +377,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
             pbar_dict.update({"Inner Step": f'{(i + 1)}'.zfill(3),
                               "Batch": f'{(k + 1)}'.zfill(3),
-                              "Train Current Loss": f'{loss.item():5.2f}'})
+                              "Train Current Loss": f'{loss.item():5.2f}'.zfill(3)})
             pbar.set_postfix(pbar_dict)
 
         # end of for k, batch in enumerate(train_loader):
@@ -473,30 +475,31 @@ def eval_model(args, global_model, client_ids, loaders, plot_confusion_matrix=Fa
         loss_all += (running_loss / num_clients)
 
         eval_accuracy = (y_true == y_pred).sum().item() / running_samples
-        acc_score = metrics.accuracy_score(y_true, y_pred)
-        f1 = metrics.f1_score(y_true, y_pred, average='micro')
+        # acc_score = metrics.accuracy_score(y_true, y_pred)
+        # f1 = metrics.f1_score(y_true, y_pred, average='micro')
 
         acc_dict[f"P{client_id}"] = eval_accuracy
         loss_dict[f"P{client_id}"] = running_loss
-        acc_score_dict[f"P{client_id}"] = acc_score
-        f1s_dict[f"P{client_id}"] = f1
+        # acc_score_dict[f"P{client_id}"] = acc_score
+        # f1s_dict[f"P{client_id}"] = f1
 
     avg_acc = (y_true_all == y_pred_all).mean().item()
     avg_loss = loss_all
-    avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
+    # avg_acc_score = metrics.accuracy_score(y_true_all, y_pred_all)
     # if plot_confusion_matrix:
     #     import matplotlib.pyplot as plt
     #     cm = metrics.confusion_matrix(y_true_all, y_pred_all)
     #     disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
     #     disp.plot()
     #     plt.show()
-    avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
+    # avg_f1 = metrics.f1_score(y_true_all, y_pred_all, average='micro')
 
     if plot_confusion_matrix:
-        return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        # return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1,-1
     else:
-        return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
-    # return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        # return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
+        return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1,-1
 
 
 def flatten_tensor(tensor_list) -> torch.Tensor:
@@ -544,7 +547,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
     new_row_dict = {
         'timestamp': pd.Timestamp.now(),
         'data_name': args.data_name,
-        'num-steps': args.num_steps,
+        'num-epochs': args.n_epochs,
         'optimizer': args.optimizer,
         'lr': args.lr,
         'num-client-agg': args.num_client_agg,
@@ -555,6 +558,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
         'basis_size': args.basis_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
         'dp_method': dp_method,
         'epoch_of_best_val': epoch_of_best_val,
+        'model_name': args.model_name,
         'best_val_acc': best_val_acc,
         'test_avg_acc': test_avg_acc,
         'reconstruction_similarity': reconstruction_similarity
@@ -582,12 +586,12 @@ def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, tr
             'train_loss': train_avg_loss,
             'test_avg_loss': val_avg_loss,
             'test_avg_acc': val_avg_acc,
-            'test_avg_acc_score': val_avg_acc_score,
-            'test_avg_f1': val_avg_f1,
+            # 'test_avg_acc_score': val_avg_acc_score,
+            # 'test_avg_f1': val_avg_f1,
             'test_best_loss': best_loss,
             'test_best_acc': best_acc,
-            'test_best_acc_score': best_acc_score,
-            'test_best_f1': best_f1,
+            # 'test_best_acc_score': best_acc_score,
+            # 'test_best_f1': best_f1,
             'test_best_epoch': best_epoch
         }
     )
@@ -667,3 +671,41 @@ def log_data_statistics(dataloaders: Collection[DataLoader], args: Namespace) ->
             test_mean = test_data_means[i]
 
             print('mean-mean similarity\t', torch.cosine_similarity(train_mean, test_mean, dim=0))
+
+
+def loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rdp_orders=32, rgp=False):
+    while True:
+        orders = np.arange(2, rdp_orders, 0.1)
+        steps = T
+        if (rgp):
+            rdp = compute_rdp(q, cur_sigma, steps, orders) * 2
+        else:
+            rdp = compute_rdp(q, cur_sigma, steps, orders)
+        cur_eps, _, opt_order = get_privacy_spent(orders, rdp, target_delta=delta)
+        if (cur_eps < eps and cur_sigma > interval):
+            cur_sigma -= interval
+            previous_eps = cur_eps
+        else:
+            cur_sigma += interval
+            break
+    return cur_sigma, previous_eps
+
+
+def get_sigma(q, T, eps, delta, init_sigma=10, interval=1., rgp=True):
+    cur_sigma = init_sigma
+
+    cur_sigma, _ = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
+    interval /= 10
+    cur_sigma, _ = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
+    interval /= 10
+    cur_sigma, previous_eps = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
+    return cur_sigma, previous_eps
+
+
+def compute_steps(args):
+    steps = int((args.n_epochs + 1) * args.num_clients / args.num_client_agg)
+    return steps
+
+
+def compute_sample_probability(args):
+    return args.num_client_agg / args.num_clients

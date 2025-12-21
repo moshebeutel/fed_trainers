@@ -5,6 +5,42 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from fed_trainers.trainers.utils import set_logger
+
+
+class CNN_Relu(nn.Module):
+    def __init__(self):
+        super(CNN_Relu, self).__init__()
+        self.conv=nn.Sequential(nn.Conv2d(1, 16, 8, 2, padding=2),
+                                      nn.ReLU(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Conv2d(16, 32, 4, 2),
+                                      nn.ReLU(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Flatten(),
+                                      nn.Linear(32 * 4 * 4, 32),
+                                      nn.ReLU(),
+                                      nn.Linear(32, 10))
+    def forward(self,x):
+        x=self.conv(x)
+        return x
+
+class CNN_Tanh(nn.Module):
+    def __init__(self):
+        super(CNN_Tanh, self).__init__()
+        self.conv=nn.Sequential(nn.Conv2d(1, 16, 8, 2, padding=2),
+                                      nn.Tanh(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Conv2d(16, 32, 4, 2),
+                                      nn.Tanh(),
+                                      nn.MaxPool2d(2, 1),
+                                      nn.Flatten(),
+                                      nn.Linear(32 * 4 * 4, 32),
+                                      nn.Tanh(),
+                                      nn.Linear(32, 10))
+    def forward(self,x):
+        x=self.conv(x)
+        return x
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
@@ -14,6 +50,79 @@ def conv3x3(in_planes, out_planes, stride=1):
                      stride=stride,
                      padding=1,
                      bias=False)
+def standardize(x, bn_stats):
+    if bn_stats is None:
+        return x
+
+    bn_mean, bn_var = bn_stats
+
+    view = [1] * len(x.shape)
+    view[1] = -1
+    x = (x - bn_mean.view(view)) / torch.sqrt(bn_var.view(view) + 1e-5)
+
+    # if variance is too low, just ignore
+    x *= (bn_var.view(view) != 0).float()
+    return x
+class CIFAR10_CNN_Tanh(nn.Module):
+    def __init__(self, in_channels=3, input_norm=None, **kwargs):
+        super(CIFAR10_CNN_Tanh, self).__init__()
+        self.in_channels = in_channels
+        self.features = None
+        self.classifier = None
+        self.norm = None
+
+        self.build(input_norm, **kwargs)
+
+    def build(self, input_norm=None, num_groups=None,
+              bn_stats=None, size=None):
+
+        if self.in_channels == 3:
+            if size == "small":
+                cfg = [16, 16, 'M', 32, 32, 'M', 64, 'M']
+            else:
+                cfg = [32, 32, 'M', 64, 64, 'M', 128, 128, 'M']
+
+            self.norm = nn.Identity()
+        else:
+            if size == "small":
+                cfg = [16, 16, 'M', 32, 32]
+            else:
+                cfg = [64, 'M', 64]
+            if input_norm is None:
+                self.norm = nn.Identity()
+            elif input_norm == "GroupNorm":
+                self.norm = nn.GroupNorm(num_groups, self.in_channels, affine=False)
+            else:
+                self.norm = lambda x: standardize(x, bn_stats)
+
+        layers = []
+        act = nn.Tanh
+
+        c = self.in_channels
+        for v in cfg:
+            if v == 'M':
+                layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+            else:
+                conv2d = nn.Conv2d(c, v, kernel_size=3, stride=1, padding=1)
+
+                layers += [conv2d, act()]
+                c = v
+
+        self.features = nn.Sequential(*layers)
+
+        if self.in_channels == 3:
+            hidden = 128
+            self.classifier = nn.Sequential(nn.Linear(c * 4 * 4, hidden), act(), nn.Linear(hidden, 10))
+        else:
+            self.classifier = nn.Linear(c * 4 * 4, 10)
+
+    def forward(self, x):
+        if self.in_channels != 3:
+            x = self.norm(x.view(-1, self.in_channels, 8, 8))
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return x
 
 
 class BasicBlock(nn.Module):
@@ -287,6 +396,10 @@ def initialize_weights(module: nn.Module):
             nn.init.kaiming_normal_(m.weight)
             if m.bias is not None:
                 m.bias.data.zero_()
+        elif isinstance(m, nn.Conv1d):
+            nn.init.kaiming_normal_(m.weight)
+            if m.bias is not None:
+                m.bias.data.zero_()
         elif isinstance(m, nn.Linear):
             nn.init.kaiming_normal_(m.weight)
             m.bias.data.zero_()
@@ -307,22 +420,27 @@ def get_model(args):
         assert args.model_name in ['CNNTarget', 'ResNet'], f'Unxpected model name {args.model_name}'
 
         if args.model_name == 'CNNTarget':
-            model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+            # model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
+            model = CIFAR10_CNN_Tanh(3)
         else:
             model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
 
-    elif args.data_name == 'keypressemg':
-        assert num_classes == 26, 'num_classes should be 26'
-        import keypressemg
-        from keypressemg.models.feature_model import FeatureModel
-        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True, depth_power=args.depth_power)
-    else:
-        assert args.data_name == 'putEMG', 'data_name should be putEMG'
-        assert num_classes == 8, 'num_classes should be 8'
-        import keypressemg
-        from keypressemg.models.feature_model import FeatureModel
-        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
-                             depth_power=args.depth_power)
+        # model = CIFAR10_CNN_Tanh(3)
+        logger = set_logger(args)
+        logger.info(f'Number Parameters: {get_n_params(model)}')
+
+    # elif args.data_name == 'keypressemg':
+    #     assert num_classes == 26, 'num_classes should be 26'
+    #     import keypressemg
+    #     from keypressemg.models.feature_model import FeatureModel
+    #     model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True, depth_power=args.depth_power)
+    # else:
+    #     assert args.data_name == 'putEMG', 'data_name should be putEMG'
+    #     assert num_classes == 8, 'num_classes should be 8'
+    #     import keypressemg
+    #     from keypressemg.models.feature_model import FeatureModel
+    #     model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
+    #                          depth_power=args.depth_power)
         # model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
 
     initialize_weights(model)

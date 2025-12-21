@@ -102,7 +102,7 @@ if __name__ == '__main__':
     sweep_configuration = {
         "name": f"gep_aux_keypressemg_{args.num_features}_{args.seed}",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "test_avg_acc"},
+        "metric": {"goal": "maximize", "name": "test_best_acc"},
         "parameters": {
             "lr": {"values": [0.1, 1.0, 0.9]},
             "global_lr": {"values": [1.0]},
