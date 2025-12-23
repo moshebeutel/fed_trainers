@@ -37,6 +37,7 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser(description="GEP Public CIFAR10/100 Federated Learning")
     data_name = 'cifar10'
+    working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
     ##################################
@@ -85,7 +86,7 @@ def main():
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
     parser.add_argument("--exp_name", type=str, default='', help="suffix for exp name")
-    parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
+    parser.add_argument("--save-path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
@@ -95,9 +96,9 @@ def main():
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
     parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
-    parser.add_argument("--log_dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log_name", type=str, default="gep_ppublic", help="dir path for logger file")
-    parser.add_argument("--csv_path", type=str, default="./csv", help="dir path for csv file")
+    parser.add_argument("--log_dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
+    parser.add_argument("--log_name", type=str, default="gep_public", help="dir path for logger file")
+    parser.add_argument("--csv_path", type=str, default=(working_dir / "csv").as_posix(), help="dir path for csv file")
     parser.add_argument("--csv_name", type=str, default=f"{data_name}_gep_public.csv", help="dir path for csv file")
 
     #############################
@@ -108,7 +109,7 @@ def main():
         "--data-name", type=str, default=data_name,
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
-    parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
+    parser.add_argument("--data-path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
     parser.add_argument("--num-classes", type=int, default=10, help="total number of clients")
 
 
@@ -144,7 +145,7 @@ def main():
 
     # Weights & Biases
     if args.wandb:
-        wandb.init(project="key_press_emg_toronto", name=exp_name)
+        wandb.init(project="dec25_sweeps", name=exp_name)
         wandb.config.update(args)
 
     train(args)

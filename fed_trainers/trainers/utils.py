@@ -352,6 +352,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
     criteria = torch.nn.CrossEntropyLoss()
     train_avg_loss = 0.0
     for i in range(args.inner_steps):
+        running_correct, running_samples = 0., 0.
         for k, batch in enumerate(train_loader):
             x, Y = tuple(t.to(device) for t in batch)
 
@@ -372,6 +373,10 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
             # update local parameters
             optimizer.step()
 
+            # running_loss += (loss.item() * Y_test.size(0))
+            running_correct += pred.argmax(1).eq(Y).sum().item()
+            running_samples += Y.size(0)
+
             # aggregate losses
             train_avg_loss += (loss.item() / Y.shape[0])
 
@@ -382,7 +387,8 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
         # end of for k, batch in enumerate(train_loader):
     # end of for i in range(args.inner_steps):
-    return local_net, train_avg_loss
+    train_avg_acc = running_correct / running_samples
+    return local_net, train_avg_loss, train_avg_acc
 
 
 def get_optimizer(args, network):
@@ -550,8 +556,10 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
         'num-epochs': args.n_epochs,
         'optimizer': args.optimizer,
         'lr': args.lr,
+        'global_lr': args.global_lr,
         'num-client-agg': args.num_client_agg,
         'clip': args.clip,
+        'epsilon': args.eps,
         'noise-multiplier': args.noise_multiplier,
         'seed': args.seed,
         'history_size': args.gradients_history_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
@@ -576,7 +584,8 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
     df.to_csv(csv_file_path, index=False)
 
 
-def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss, val_acc_dict,
+def log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss,
+              train_avg_acc, val_acc_dict,
               val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
               val_loss_dict):
     log_dict = {}
@@ -584,23 +593,27 @@ def log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, tr
         {
             'custom_step': step,
             'train_loss': train_avg_loss,
-            'test_avg_loss': val_avg_loss,
-            'test_avg_acc': val_avg_acc,
+            'train_acc': train_avg_acc,
+            'train_best_acc': train_acc_of_best_model,
+            'val_avg_loss': val_avg_loss,
+            'val_avg_acc': val_avg_acc,
             # 'test_avg_acc_score': val_avg_acc_score,
             # 'test_avg_f1': val_avg_f1,
-            'test_best_loss': best_loss,
-            'test_best_acc': best_acc,
+            'val_best_loss': best_loss,
+            'val_best_acc': best_acc,
             # 'test_best_acc_score': best_acc_score,
             # 'test_best_f1': best_f1,
-            'test_best_epoch': best_epoch
+            'val_best_epoch': best_epoch
         }
     )
-    log_dict.update({f"test_acc_{l}": m for (l, m) in val_acc_dict.items()})
-    log_dict.update({f"test_loss_{l}": m for (l, m) in val_loss_dict.items()})
-    log_dict.update({f"test_acc_score_{l}": m for (l, m) in val_acc_score_dict.items()})
-    log_dict.update({f"test_f1_{l}": m for (l, m) in val_f1s_dict.items()})
+    # log_dict.update({f"test_acc_{l}": m for (l, m) in val_acc_dict.items()})
+    # log_dict.update({f"test_loss_{l}": m for (l, m) in val_loss_dict.items()})
+    # log_dict.update({f"test_acc_score_{l}": m for (l, m) in val_acc_score_dict.items()})
+    # log_dict.update({f"test_f1_{l}": m for (l, m) in val_f1s_dict.items()})
     wandb.log(log_dict)
 
+def logtest2wandb(test_acc):
+    wandb.log({"test_acc": test_acc})
 
 def wandb_plot_confusion_matrix(ground_truth, predictions, class_names):
     wandb.log({"conf_mat": wandb.plot.confusion_matrix(probs=None,
@@ -609,13 +622,13 @@ def wandb_plot_confusion_matrix(ground_truth, predictions, class_names):
 
 
 @torch.no_grad()
-def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr):
+def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr=1.0):
     # update old parameters using private aggregated grads
     params = {}
     offset = 0
     for n, p in prev_params.items():
         num_layer_elements = p.numel()
-        params[n] = p + global_lr * aggregated_grads[offset: offset + num_layer_elements].reshape(p.shape)
+        params[n] = (1 - global_lr) *  p + global_lr * aggregated_grads[offset: offset + num_layer_elements].reshape(p.shape)
         offset += num_layer_elements
     # update new parameters of global net
     net.load_state_dict(params)
@@ -709,3 +722,6 @@ def compute_steps(args):
 
 def compute_sample_probability(args):
     return args.num_client_agg / args.num_clients
+
+def compute_steps_in_epoch(args):
+    return int(args.num_clients / args.num_client_agg)

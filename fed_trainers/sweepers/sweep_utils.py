@@ -19,7 +19,7 @@ def sweep_train(sweep_id, args, train_fn, config=None):
 
 
 def init_sweep(config):
-    sweep_id = wandb.sweep(sweep=config, project="key_press_emg_toronto")
+    sweep_id = wandb.sweep(sweep=config, project="dec25_sweeps")
     return sweep_id
 
 

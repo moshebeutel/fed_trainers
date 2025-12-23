@@ -8,17 +8,19 @@ from tqdm import trange
 from fed_trainers.trainers.gep.gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
     compute_subspace
 from fed_trainers.trainers.model import get_model
-from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
-    load_aggregated_grads_to_global_net, compute_steps
+from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, \
+    log2wandb, \
+    load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch, logtest2wandb
 
 
 def train(args, dataloaders):
     logger = logging.getLogger(args.log_name)
 
-    val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1 = 0.0, 0.0, 0.0, 0.0
+    val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1, train_acc_of_best_model = 0.0, 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
     reconstruction_similarities = []
     public_clients, private_clients, dummy_clients = get_clients(args)
+    num_public_clients = len(public_clients)
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
@@ -34,6 +36,9 @@ def train(args, dataloaders):
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
     reconstruction_similarity = 0.0
     num_steps = compute_steps(args)
+    steps_in_epoch = compute_steps_in_epoch(args)
+    current_epoch_val_avg_acc_list = []
+    current_epoch_val_avg_acc = 0.0
     step_iter = trange(num_steps)
 
     pbar_dict = {'Step': '0', 'Client': '0', 'Public_Private?': 'Public_',
@@ -52,7 +57,7 @@ def train(args, dataloaders):
             prev_params[n] = p.detach()
 
         # *** Local trains on public clients - get gradients for subspace
-        train_avg_loss = 0.0
+        train_avg_loss_public, train_avg_acc_public = 0.0, 0.0
         for j, c_id in enumerate(public_clients):
 
             train_loader = train_loaders[c_id]
@@ -60,9 +65,12 @@ def train(args, dataloaders):
             pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3), 'Client': f'{c_id}'.zfill(3),
                               'Public_Private?': 'Public_',
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
-                              'Train Avg Loss': f'{train_avg_loss:.4f}'})
-            local_net, train_avg_loss = local_train(args, net, train_loader,
+                              'Train Avg Loss': f'{train_avg_loss_public:.4f}'})
+            local_net, train_loss, train_acc = local_train(args, net, train_loader,
                                                     pbar=step_iter, pbar_dict=pbar_dict)
+
+            train_avg_acc_public += train_acc / num_public_clients
+            train_avg_loss_public += train_loss / num_public_clients
 
             # get client grads and sum.
             for n, p in local_net.named_parameters():
@@ -85,7 +93,7 @@ def train(args, dataloaders):
         client_ids_step = np.random.choice([*public_clients, *private_clients], size=args.num_client_agg, replace=False)
 
         # Iterate over each client
-        train_avg_loss = 0
+        train_avg_loss, train_avg_acc = 0.0, 0.0
         for j, c_id in enumerate(client_ids_step):
 
             train_loader = train_loaders[c_id]
@@ -100,8 +108,11 @@ def train(args, dataloaders):
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
-            local_net, train_avg_loss = local_train(args, net, train_loader,
+            local_net, train_loss, train_acc = local_train(args, net, train_loader,
                                                     pbar=step_iter, pbar_dict=pbar_dict)
+
+            train_avg_acc += train_acc / num_public_clients
+            train_avg_loss += train_loss / num_public_clients
 
             # get client grads
             for n, p in local_net.named_parameters():
@@ -116,7 +127,7 @@ def train(args, dataloaders):
         # project grads to subspace computed by public grads
         embedded_grads = embed_grad(grads_flattened, pca).to(device)
 
-        # clip grads in embedding  subspace
+        # clip grads in embedding subspace
         embedded_grads_norms = torch.norm(embedded_grads, p=2, dim=-1)
         clip_factor = torch.max(torch.ones_like(embedded_grads_norms), embedded_grads_norms / args.clip)
         embedded_grads_clipped = torch.div(embedded_grads, clip_factor.reshape(-1, 1))
@@ -142,7 +153,7 @@ def train(args, dataloaders):
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
         # update global net
-        global_lr = args.global_lr ** step
+        global_lr = args.global_lr ** (step // steps_in_epoch)
         logger.debug(f'Global learning rate: {global_lr}')
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
 
@@ -153,21 +164,31 @@ def train(args, dataloaders):
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
                 val_avg_acc, val_avg_loss, val_avg_acc_score, val_avg_f1 = val_results
 
-            if val_avg_acc > best_acc:
-                best_acc = val_avg_acc
-                best_loss = val_avg_loss
-                best_acc_score = val_avg_acc_score
-                best_f1 = val_avg_f1
-                best_epoch = step
-                best_model.cpu()
-                del best_model
-                best_model = copy.deepcopy(net)
+            current_epoch_val_avg_acc_list.append(val_avg_acc)
+            if len(current_epoch_val_avg_acc_list) >= (float(steps_in_epoch) / float(args.eval_every)):
+                current_epoch_val_avg_acc = np.mean(current_epoch_val_avg_acc_list)
+                current_epoch_val_avg_acc_list = []
+
+                if current_epoch_val_avg_acc > best_acc:
+                    best_acc = current_epoch_val_avg_acc
+                    best_loss = val_avg_loss
+                    train_acc_of_best_model = train_avg_acc
+                    # best_acc_score = val_avg_acc_score
+                    # best_f1 = val_avg_f1
+                    best_epoch = step
+                    best_model.cpu()
+                    del best_model
+                    best_model = copy.deepcopy(net)
 
         # Monitor using Weights & Biases
         if args.wandb:
-            log2wandb(best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss, val_acc_dict,
-                      val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
-                      val_loss_dict)
+            log2wandb(train_acc_of_best_model ,best_acc, best_acc_score, best_epoch, best_f1, best_loss,
+                      step,
+                      train_avg_loss, train_avg_acc,
+                      val_acc_dict,val_acc_score_dict,
+                      current_epoch_val_avg_acc,
+                      val_avg_acc_score, val_avg_f1, val_avg_loss,
+                      val_f1s_dict, val_loss_dict)
 
     # Test best model
     test_results = eval_model(args, best_model, private_clients, test_loaders)
@@ -175,6 +196,10 @@ def train(args, dataloaders):
     _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
 
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
+
+    if args.wandb:
+        logtest2wandb(test_avg_acc)
+
 
     update_frame(args, dp_method='GEP_PUBLIC', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
                  test_avg_acc=test_avg_acc, reconstruction_similarity=np.mean(reconstruction_similarities))

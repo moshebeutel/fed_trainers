@@ -1,31 +1,36 @@
+from pathlib import Path
+
 import pandas as pd
 from datetime import datetime, timedelta
 
-# Read the CSV file
-df = pd.read_csv('csv/cifar10_sgd_dp.csv')
+working_dir = Path(__file__).resolve().parents[1] / 'fed_trainers'
 
+# Read the CSV file
+df = pd.read_csv(working_dir / 'csv/cifar10_gep_public.csv')
+print(df.columns)
 # Convert the timestamp column to datetime objects
 df['timestamp'] = pd.to_datetime(df['timestamp'])
 
 # Calculate yesterday's date
-yesterday = (datetime.now() - timedelta(days=1)).date()
+# yesterday = (datetime.now() - timedelta(days=1)).date()
 today = datetime.now().date()
 
 # Filter the DataFrame for runs that occurred yesterday
 # yesterday_runs = df[df['timestamp'].dt.date == yesterday]
-today_runs = df[df['timestamp'].dt.date == today]
+runs = df[df['timestamp'].dt.date == today]
+runs = runs[runs['num-epochs'] == 10]
+print(runs[['timestamp', 'noise-multiplier', 'clip', 'test_avg_acc']])
 
 # Group the filtered data by 'noise-multiplier'
-grouped_runs = today_runs.groupby('num-epochs')
-
+grouped_runs = runs.groupby('num-epochs')
 # Example: Display the number of runs for each noise multiplier group
 print("best_val_acc:")
 print(grouped_runs['best_val_acc'].max())
 print("test_avg_acc:")
 print(grouped_runs['test_avg_acc'].max())
 # Filter for rows where noise-multiplier is 0.2
-specific_rows = today_runs[today_runs['num-epochs'] == 150]
-print(specific_rows)
+# specific_rows = runs[runs['num-epochs'] == 150]
+# print(specific_rows)
 # specific_noise_clip_rows = specific_noise_rows[specific_noise_rows['clip'] == 0.01]
 #
 # specific_noise_clip_agg_rows = specific_noise_clip_rows[specific_noise_clip_rows['num-client-agg'] == 10]
