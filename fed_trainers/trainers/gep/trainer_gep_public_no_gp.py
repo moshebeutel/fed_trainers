@@ -89,11 +89,11 @@ def train(args, dataloaders):
         # Local trains on sampled clients
 
         # Sample several clients
-        # client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
-        client_ids_step = np.random.choice([*public_clients, *private_clients], size=args.num_client_agg, replace=False)
+        client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
+
+        train_avg_loss, train_avg_acc = 0.0, 0.0
 
         # Iterate over each client
-        train_avg_loss, train_avg_acc = 0.0, 0.0
         for j, c_id in enumerate(client_ids_step):
 
             train_loader = train_loaders[c_id]
@@ -182,7 +182,7 @@ def train(args, dataloaders):
 
         # Monitor using Weights & Biases
         if args.wandb:
-            log2wandb(train_acc_of_best_model ,best_acc, best_acc_score, best_epoch, best_f1, best_loss,
+            log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, best_f1, best_loss,
                       step,
                       train_avg_loss, train_avg_acc,
                       val_acc_dict,val_acc_score_dict,
