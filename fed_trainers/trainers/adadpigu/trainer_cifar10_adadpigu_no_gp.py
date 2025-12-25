@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
 
-    parser.add_argument("--calibration_split", type=float, default=0.2,
+    parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #

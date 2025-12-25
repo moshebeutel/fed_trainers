@@ -24,13 +24,13 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=10)
+    parser.add_argument("--n_epochs", type=int, default=30)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.99, help="server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1e-3, help="gradient clip")
@@ -92,23 +92,23 @@ def main():
         "name": f"SGD_DP_CIFAR10_epsilon_{args.eps}",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "grid",
-        "metric": {"goal": "maximize", "name": "test_best_acc"},
+        "metric": {"goal": "maximize", "name": "test_acc"},
         "parameters": {
-            "lr": {"values": [1e-1, 1e-3]},
-            "global_lr": {"values": [0.99, 0.95]},
+            # "lr": {"values": [1e-4, 1e-3, 1e-2]},
+            # "global_lr": {"values": [1.0, 0.99]},
             # "eps": {"values": [8]},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"values": [1e-1, 1e-3]},
+            "clip": {"values": [1e-3, 1.0]},
             # "calibration_split": {"values": [0.0]},
-            # "inner_steps": {"values": [1]},
+            "inner_steps": {"values": [1, 15]},
             # "wd": {"values": [1e-4]},
-            # "n_epochs": {"values": [300]},
-            # "optimizer": {"values": ["sgd"]},
-            # "num_client_agg": {"values": [10]},
-            # "model_name": {"values": ["CNNTarget"]},
+            "n_epochs": {"values": [50, 200]},
+            "optimizer": {"values": ["sgd", "adam"]},
+            "num_client_agg": {"values": [25, 50]},
+            # "model_name": {"values": ["CNNTarget", "ResNet"]},
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,

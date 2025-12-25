@@ -33,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument("--calibration_split", type=float, default=0.2,
+    parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
     #############################
     #       General args        #
@@ -107,7 +107,8 @@ if __name__ == '__main__':
             "num_public_clients": {"values": [5]},
             "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
             "noise_multiplier": {"values": [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]},
-            "calibration_split": {"values": [0.0, 0.1, 0.2]},
+            "calibration_split": {"values": [0.0]},
+            # "calibration_split": {"values": [0.0, 0.1, 0.2]},
             "inner_steps": {"values": [1]},
             "wd": {"values": [0.0001, 0.001]},
             "num_steps": {"values": [100]},
