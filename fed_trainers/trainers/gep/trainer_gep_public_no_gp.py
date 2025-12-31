@@ -69,8 +69,8 @@ def train(args, dataloaders):
             local_net, train_loss, train_acc = local_train(args, net, train_loader,
                                                     pbar=step_iter, pbar_dict=pbar_dict)
 
-            train_avg_acc_public += train_acc / num_public_clients
-            train_avg_loss_public += train_loss / num_public_clients
+            train_avg_acc_public += (train_acc / num_public_clients)
+            train_avg_loss_public += (train_loss / num_public_clients)
 
             # get client grads and sum.
             for n, p in local_net.named_parameters():
@@ -111,8 +111,8 @@ def train(args, dataloaders):
             local_net, train_loss, train_acc = local_train(args, net, train_loader,
                                                     pbar=step_iter, pbar_dict=pbar_dict)
 
-            train_avg_acc += train_acc / num_public_clients
-            train_avg_loss += train_loss / num_public_clients
+            train_avg_acc += (train_acc / args.num_client_agg)
+            train_avg_loss += (train_loss / args.num_client_agg)
 
             # get client grads
             for n, p in local_net.named_parameters():
