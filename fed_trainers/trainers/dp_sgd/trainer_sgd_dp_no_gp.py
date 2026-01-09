@@ -103,7 +103,8 @@ def train(args, dataloaders):
         aggregated_grads = noised_grads.mean(dim=0)
 
         # update global net
-        global_lr = max(args.min_global_lr,  args.global_lr ** (step // steps_in_epoch))
+        global_lr = args.global_lr * args.num_client_agg / args.num_private_clients
+        # global_lr = max(args.min_global_lr,  args.global_lr ** (step // steps_in_epoch))
         logger.debug(f'Global learning rate: {global_lr}')
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
         # Evaluate model

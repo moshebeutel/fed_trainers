@@ -24,7 +24,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=300, help="number of epochs to train")
+    parser.add_argument("--n_epochs", type=int, default=50, help="number of epochs to train")
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
@@ -37,7 +37,7 @@ def main():
     parser.add_argument("--clip", type=float, default=1e-4, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
+    parser.add_argument('--eps', default=-1, type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
@@ -90,7 +90,7 @@ def main():
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"agg{args.num_client_agg}_minglr{args.min_global_lr}_SGD_DP_CIFAR10_epsilon_{args.eps}",
+        "name": f"{args.model_name}_SGD_DP_CIFAR10_noise_levels",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_acc"},
@@ -103,7 +103,7 @@ def main():
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            # "clip": {"values": [1e-4, 1]},
+            "clip": {"values": [1e-4, 1]},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [15, 1]},
             # "wd": {"values": [1e-4]},
@@ -111,6 +111,7 @@ def main():
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
+            "noise_multiplier": {"values": [0.0, 1./3., 2./3., 1.0, 1.5]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,
