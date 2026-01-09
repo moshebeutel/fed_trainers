@@ -587,7 +587,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
 def log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss,
               train_avg_acc, val_acc_dict,
               val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
-              val_loss_dict):
+              val_loss_dict, global_lr = None):
     log_dict = {}
     log_dict.update(
         {
@@ -606,6 +606,9 @@ def log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, bes
             'val_best_epoch': best_epoch
         }
     )
+    if global_lr is not None:
+        log_dict.update({'global_lr': global_lr})
+
     # log_dict.update({f"test_acc_{l}": m for (l, m) in val_acc_dict.items()})
     # log_dict.update({f"test_loss_{l}": m for (l, m) in val_loss_dict.items()})
     # log_dict.update({f"test_acc_score_{l}": m for (l, m) in val_acc_score_dict.items()})
@@ -716,12 +719,12 @@ def get_sigma(q, T, eps, delta, init_sigma=10, interval=1., rgp=True):
 
 
 def compute_steps(args):
-    steps = int((args.n_epochs + 1) * args.num_clients / args.num_client_agg)
+    steps = int((args.n_epochs + 1) * args.num_private_clients / args.num_client_agg)
     return steps
 
 
 def compute_sample_probability(args):
-    return args.num_client_agg / args.num_clients
+    return args.num_client_agg / args.num_private_clients
 
 def compute_steps_in_epoch(args):
-    return int(args.num_clients / args.num_client_agg)
+    return int(args.num_private_clients / args.num_client_agg)

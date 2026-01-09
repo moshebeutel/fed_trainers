@@ -24,7 +24,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=30)
+    parser.add_argument("--n_epochs", type=int, default=300, help="number of epochs to train")
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
@@ -34,7 +34,7 @@ def main():
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
     parser.add_argument("--min_global_lr", type=float, default=0.01, help="min value for decreasing server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=1e-3, help="gradient clip")
+    parser.add_argument("--clip", type=float, default=1e-4, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
@@ -95,8 +95,9 @@ def main():
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_acc"},
         "parameters": {
-            # "lr": {"values": [1e-4, 1e-3, 1e-2]},
-            # "global_lr": {"values": [1.0, 0.99]},
+            # "lr": {"values": [1e-4, 1e-2]},
+            # "global_lr": {"values": [0.999, 0.9]},
+            # "min_global_lr": {"values": [0.5, 0.1]},
             # "eps": {"values": [8]},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
@@ -104,11 +105,11 @@ def main():
             # "num_public_clients": {"values": [args.num_public_clients]},
             # "clip": {"values": [1e-4, 1]},
             # "calibration_split": {"values": [0.0]},
-            "inner_steps": {"values": [15, 30]},
+            # "inner_steps": {"values": [15, 1]},
             # "wd": {"values": [1e-4]},
-            "n_epochs": {"values": [200]},
-            "optimizer": {"values": ["sgd"]},
-            "num_client_agg": {"values": [10]},
+            # "n_epochs": {"values": [50]},
+            # "optimizer": {"values": ["sgd"]},
+            # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
         },
     }
