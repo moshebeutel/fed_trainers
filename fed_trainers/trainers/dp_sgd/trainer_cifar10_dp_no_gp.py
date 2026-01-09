@@ -37,6 +37,9 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
     data_name = 'cifar10'
+    num_users = 500
+    num_public_clients = 10
+    working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
     ##################################
@@ -50,18 +53,18 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=200)
+    parser.add_argument("--n_epochs", type=int, default=300, help="number of epochs to train")
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=15, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=25, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
+    parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
+    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
-    parser.add_argument("--min_global_lr", type=float, default=7e-4, help="min value for decreasing server learning rate")
+    parser.add_argument("--min_global_lr", type=float, default=0.01, help="min value for decreasing server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
+    parser.add_argument("--clip", type=float, default=1e-4, help="gradient clip")
+    parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
@@ -73,8 +76,8 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp-name", type=str, default='', help="suffix for exp name")
-    parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
+    parser.add_argument("--exp_name", type=str, default='', help="suffix for exp name")
+    parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
@@ -86,8 +89,8 @@ def main():
                         help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
-    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
+    parser.add_argument("--csv_path", type=str, default=(working_dir / 'csv').as_posix(), help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
 
     #############################
     #       Dataset Args        #
@@ -97,17 +100,17 @@ def main():
         "--data-name", type=str, default=data_name,
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
-    parser.add_argument("--data-path", type=str, default="data", help="dir path for dataset")
-    parser.add_argument("--num-classes", type=int, default=10, help="total number of clients")
+    parser.add_argument("--data_path", type=str, default="data", help="dir path for dataset")
+    parser.add_argument("--num_classes", type=int, default=10, help="total number of clients")
 
     #############################
     #       Clients Args        #
     #############################
 
-    parser.add_argument("--num-clients", type=int, default=500, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=490, help="number of private clients")
-    parser.add_argument("--num-public-clients", type=int, default=10, help="number of public clients")
-    parser.add_argument("--classes-per-client", type=int, default=2, help="number of simulated clients")
+    parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
+    parser.add_argument("--num_private_clients", type=int, default=num_users-num_public_clients, help="number of private clients")
+    parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
+    parser.add_argument("--classes_per_client", type=int, default=2, help="number of simulated clients")
 
 
     args = parser.parse_args()

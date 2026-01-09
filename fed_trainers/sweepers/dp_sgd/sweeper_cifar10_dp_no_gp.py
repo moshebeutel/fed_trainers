@@ -47,7 +47,7 @@ def main():
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
     parser.add_argument("--exp_name", type=str, default='Sweep_SGD_DP_CIFAR10', help="suffix for exp name")
-    parser.add_argument("--save-path", type=str, default=(working_dir / 'saved_models').as_posix(),
+    parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=True)
@@ -71,16 +71,16 @@ def main():
     #       General args        #
     #############################
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval_every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval_after", type=int, default=4, help="eval only after X selected epochs")
+    parser.add_argument("--eval_every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval_after", type=int, default=1, help="eval only after X selected epochs")
 
-    parser.add_argument("--log_every", type=int, default=5, help="log every X selected epochs")
+    parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
     parser.add_argument("--log_dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
     parser.add_argument("--log_level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--log_name", type=str, default="Sweep_SGD_DP_CIFAR10",
                         help="dir path for logger file")
-    parser.add_argument("--csv-path", type=str, default=(working_dir / "csv").as_posix(), help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="cifar10_sgd_dp.csv", help="dir path for csv file")
+    parser.add_argument("--csv_path", type=str, default=(working_dir / "csv").as_posix(), help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default="cifar10_sgd_dp.csv", help="dir path for csv file")
 
     args = parser.parse_args()
 
