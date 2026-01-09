@@ -591,15 +591,15 @@ def log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, bes
     log_dict = {}
     log_dict.update(
         {
-            'custom_step': step,
+            # 'custom_step': step,
             'train_loss': train_avg_loss,
             'train_acc': train_avg_acc,
             'train_best_acc': train_acc_of_best_model,
-            'val_avg_loss': val_avg_loss,
+            # 'val_avg_loss': val_avg_loss,
             'val_avg_acc': val_avg_acc,
             # 'test_avg_acc_score': val_avg_acc_score,
             # 'test_avg_f1': val_avg_f1,
-            'val_best_loss': best_loss,
+            # 'val_best_loss': best_loss,
             'val_best_acc': best_acc,
             # 'test_best_acc_score': best_acc_score,
             # 'test_best_f1': best_f1,

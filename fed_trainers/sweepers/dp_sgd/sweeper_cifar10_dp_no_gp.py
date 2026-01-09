@@ -30,8 +30,9 @@ def main():
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.99, help="server learning rate")
+    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
+    parser.add_argument("--min_global_lr", type=float, default=0.01, help="min value for decreasing server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=1e-3, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
@@ -89,7 +90,7 @@ def main():
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"SGD_DP_CIFAR10_epsilon_{args.eps}",
+        "name": f"agg{args.num_client_agg}_minglr{args.min_global_lr}_SGD_DP_CIFAR10_epsilon_{args.eps}",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_acc"},
@@ -101,7 +102,7 @@ def main():
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"values": [1e-3, 1e-4]},
+            # "clip": {"values": [1e-4, 1]},
             # "calibration_split": {"values": [0.0]},
             "inner_steps": {"values": [15, 30]},
             # "wd": {"values": [1e-4]},
