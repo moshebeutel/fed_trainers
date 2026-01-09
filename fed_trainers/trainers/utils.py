@@ -351,8 +351,8 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
     optimizer = get_optimizer(args, local_net)
     criteria = torch.nn.CrossEntropyLoss()
     train_avg_loss = 0.0
+    running_correct, running_samples = 0., 0.
     for i in range(args.inner_steps):
-        running_correct, running_samples = 0., 0.
         for k, batch in enumerate(train_loader):
             x, Y = tuple(t.to(device) for t in batch)
 
@@ -366,6 +366,8 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
             #         torch.nn.functional.cross_entropy(pred, Y, reduction='none')).mean()
             loss = criteria(pred, Y)
             # loss = torch.einsum('ij,ij->i', pred, distance_matrix[Y].float()).sum()
+            # aggregate losses
+            train_avg_loss += (loss.item() * Y.shape[0])
             # back prop
             loss.backward()
             # # clip gradients
@@ -373,12 +375,8 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
             # update local parameters
             optimizer.step()
 
-            # running_loss += (loss.item() * Y_test.size(0))
             running_correct += pred.argmax(1).eq(Y).sum().item()
             running_samples += Y.size(0)
-
-            # aggregate losses
-            train_avg_loss += (loss.item() / Y.shape[0])
 
             pbar_dict.update({"Inner Step": f'{(i + 1)}'.zfill(3),
                               "Batch": f'{(k + 1)}'.zfill(3),
@@ -387,6 +385,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
         # end of for k, batch in enumerate(train_loader):
     # end of for i in range(args.inner_steps):
+    train_avg_loss /= running_samples
     train_avg_acc = running_correct / running_samples
     return local_net, train_avg_loss, train_avg_acc
 
