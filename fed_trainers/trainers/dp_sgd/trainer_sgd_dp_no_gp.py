@@ -18,7 +18,6 @@ def train(args, dataloaders):
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1, train_acc_of_best_model = 0.0, 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
     public_clients, private_clients, dummy_clients = get_clients(args)
-    num_public_clients = len(public_clients)
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
@@ -31,9 +30,11 @@ def train(args, dataloaders):
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
     num_steps = compute_steps(args)
     steps_in_epoch = compute_steps_in_epoch(args)
+    current_epoch_grads_norms_list = []
     current_epoch_train_avg_acc_list = []
     current_epoch_train_avg_loss_list = []
     current_epoch_val_avg_acc_list = []
+    current_epoch_grads_avg_norms = 0.0
     current_epoch_train_avg_acc = 0.0
     current_epoch_train_avg_loss = 0.0
     current_epoch_val_avg_acc = 0.0
@@ -52,7 +53,7 @@ def train(args, dataloaders):
 
         # Sample several clients
         client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
-        logger.debug(f'Client ids in step {step}: {client_ids_step}')
+        # logger.debug(f'Client ids in step {step}: {client_ids_step}')
 
         train_avg_loss, train_avg_acc = 0.0, 0.0
 
@@ -94,6 +95,8 @@ def train(args, dataloaders):
         clip_factor = torch.max(torch.ones_like(grads_norms), grads_norms / args.clip)
         grads_flattened_clipped = torch.div(grads_flattened, clip_factor.reshape(-1, 1))
 
+        current_epoch_grads_norms_list.append(float(grads_norms.mean()))
+
         # noise grads
         noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
                              size=grads_flattened_clipped.shape).to(device)
@@ -103,8 +106,9 @@ def train(args, dataloaders):
         aggregated_grads = noised_grads.mean(dim=0)
 
         # update global net
-        global_lr = max(args.min_global_lr,  args.global_lr ** (step // steps_in_epoch))
-        logger.debug(f'Global learning rate: {global_lr}')
+        global_lr = args.global_lr * args.num_client_agg / args.num_private_clients
+        # global_lr = max(args.min_global_lr,  args.global_lr ** (step // steps_in_epoch))
+        # logger.debug(f'Global learning rate: {global_lr}')
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
         # Evaluate model
         if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == num_steps:
@@ -116,6 +120,12 @@ def train(args, dataloaders):
             current_epoch_val_avg_acc_list.append(val_avg_acc)
             if len(current_epoch_val_avg_acc_list) >= (float(steps_in_epoch) / float(args.eval_every)):
                 current_epoch_train_avg_loss = np.mean(current_epoch_train_avg_loss_list)
+                current_epoch_grads_avg_norms = np.mean(current_epoch_grads_norms_list)
+                logger.info(f'Train avg grads norms: {current_epoch_grads_avg_norms:.4f}')
+                logger.info(f'Train avg grads norms list: {current_epoch_grads_norms_list}')
+                current_epoch_grads_norms_list = []
+                logger.info(f'Train avg loss: {current_epoch_train_avg_loss:.4f}')
+                logger.info(f'Train avg loss list: {current_epoch_train_avg_loss_list}')
                 current_epoch_train_avg_loss_list = []
                 current_epoch_train_avg_acc = np.mean(current_epoch_train_avg_acc_list)
                 current_epoch_train_avg_acc_list = []
