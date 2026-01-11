@@ -44,6 +44,8 @@ def set_seed(seed, cudnn_enabled=True):
 def set_logger(args):
     logger = logging.getLogger(args.log_name)
     logger.setLevel(args.log_level)
+    if logger.handlers:
+        return logger
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
@@ -501,10 +503,10 @@ def eval_model(args, global_model, client_ids, loaders, plot_confusion_matrix=Fa
 
     if plot_confusion_matrix:
         # return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
-        return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1,-1
+        return y_true_all, y_pred_all, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1, -1
     else:
         # return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, avg_acc_score, avg_f1
-        return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1,-1
+        return acc_dict, loss_dict, acc_score_dict, f1s_dict, avg_acc, avg_loss, -1, -1
 
 
 def flatten_tensor(tensor_list) -> torch.Tensor:
@@ -583,10 +585,25 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
     df.to_csv(csv_file_path, index=False)
 
 
-def log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, best_f1, best_loss, step, train_avg_loss,
-              train_avg_acc, val_acc_dict,
-              val_acc_score_dict, val_avg_acc, val_avg_acc_score, val_avg_f1, val_avg_loss, val_f1s_dict,
-              val_loss_dict, global_lr = None):
+def log2wandb(train_acc_of_best_model,
+              best_acc,
+              best_acc_score,
+              best_epoch,
+              best_f1,
+              best_loss,
+              step,
+              train_avg_loss,
+              train_avg_acc,
+              val_acc_dict,
+              val_acc_score_dict,
+              val_avg_acc,
+              val_avg_acc_score,
+              val_avg_f1,
+              val_avg_loss,
+              val_f1s_dict,
+              val_loss_dict,
+              grads_norms = None,
+              lr=None):
     log_dict = {}
     log_dict.update(
         {
@@ -605,8 +622,8 @@ def log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, bes
             'val_best_epoch': best_epoch
         }
     )
-    if global_lr is not None:
-        log_dict.update({'global_lr': global_lr})
+    if lr is not None:
+        log_dict.update({'lr': lr, 'grads_norms': grads_norms})
 
     # log_dict.update({f"test_acc_{l}": m for (l, m) in val_acc_dict.items()})
     # log_dict.update({f"test_loss_{l}": m for (l, m) in val_loss_dict.items()})
@@ -614,8 +631,10 @@ def log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, bes
     # log_dict.update({f"test_f1_{l}": m for (l, m) in val_f1s_dict.items()})
     wandb.log(log_dict)
 
+
 def logtest2wandb(test_acc):
     wandb.log({"test_acc": test_acc})
+
 
 def wandb_plot_confusion_matrix(ground_truth, predictions, class_names):
     wandb.log({"conf_mat": wandb.plot.confusion_matrix(probs=None,
@@ -630,7 +649,8 @@ def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, glob
     offset = 0
     for n, p in prev_params.items():
         num_layer_elements = p.numel()
-        params[n] = (1 - global_lr) *  p + global_lr * aggregated_grads[offset: offset + num_layer_elements].reshape(p.shape)
+        params[n] = (1 - global_lr) * p + global_lr * aggregated_grads[offset: offset + num_layer_elements].reshape(
+            p.shape)
         offset += num_layer_elements
     # update new parameters of global net
     net.load_state_dict(params)
@@ -718,12 +738,13 @@ def get_sigma(q, T, eps, delta, init_sigma=10, interval=1., rgp=True):
 
 
 def compute_steps(args):
-    steps = int((args.n_epochs + 1) * args.num_private_clients / args.num_client_agg)
+    steps = args.n_epochs * compute_steps_in_epoch(args)
     return steps
 
 
 def compute_sample_probability(args):
     return args.num_client_agg / args.num_private_clients
+
 
 def compute_steps_in_epoch(args):
     return int(args.num_private_clients / args.num_client_agg)

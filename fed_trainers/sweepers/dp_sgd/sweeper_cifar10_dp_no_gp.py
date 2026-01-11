@@ -19,23 +19,25 @@ def main():
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
     parser.add_argument("--num-classes", type=int, default=10, help="Number of unique labels")
-    parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='CNNTarget')
+    parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
 
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=50, help="number of epochs to train")
+    parser.add_argument("--n_epochs", type=int, default=300, help="number of epochs to train")
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
-    parser.add_argument("--min_global_lr", type=float, default=0.01, help="min value for decreasing server learning rate")
+    parser.add_argument("--num_client_agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
+    parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
+    parser.add_argument("--min_global_lr", type=float, default=0.01,
+                        help="min value for decreasing server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=1e-4, help="gradient clip")
-    parser.add_argument("--noise_multiplier", type=float, default=0.1, help="dp noise factor "
+    parser.add_argument("--clip", type=float, default=1, help="gradient clip")
+    parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
     parser.add_argument('--eps', default=-1, type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
@@ -75,7 +77,8 @@ def main():
     parser.add_argument("--eval_after", type=int, default=1, help="eval only after X selected epochs")
 
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
-    parser.add_argument("--log_dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
+    parser.add_argument("--log_dir", type=str, default=(working_dir / "log").as_posix(),
+                        help="dir path for logger file")
     parser.add_argument("--log_level", type=int, default=logging.INFO, help="logger filter")
     parser.add_argument("--log_name", type=str, default="Sweep_SGD_DP_CIFAR10",
                         help="dir path for logger file")
@@ -90,12 +93,13 @@ def main():
     logger.info(f"Args: {args}")
 
     sweep_configuration = {
-        "name": f"{args.model_name}_SGD_DP_CIFAR10_noise_levels",
+        "name": f"agg{args.num_client_agg}_minglr{args.min_global_lr}_SGD_DP_CIFAR10_epsilon_{args.eps}",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "grid",
         "metric": {"goal": "maximize", "name": "test_acc"},
         "parameters": {
-            # "lr": {"values": [1e-4, 1e-2]},
+            "lr": {"values": [1e-3]},
+            "lr_dec_rate": {"values": [1.0, 0.9]},
             # "global_lr": {"values": [0.999, 0.9]},
             # "min_global_lr": {"values": [0.5, 0.1]},
             # "eps": {"values": [8]},
@@ -103,15 +107,14 @@ def main():
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"values": [1e-4, 1]},
+            # "clip": {"values": [1e-4, 1]},
             # "calibration_split": {"values": [0.0]},
-            # "inner_steps": {"values": [15, 1]},
+            # "inner_steps": {"values": [1, 3]},
             # "wd": {"values": [1e-4]},
             # "n_epochs": {"values": [50]},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
-            "noise_multiplier": {"values": [0.0, 1./3., 2./3., 1.0, 1.5]}
         },
     }
     sweep(sweep_config=sweep_configuration, args=args,
