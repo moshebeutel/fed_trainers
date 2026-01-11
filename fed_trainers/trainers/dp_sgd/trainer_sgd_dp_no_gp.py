@@ -34,7 +34,7 @@ def train(args, dataloaders):
     current_epoch_train_avg_acc_list = []
     current_epoch_train_avg_loss_list = []
     current_epoch_val_avg_acc_list = []
-    current_epoch_grads_avg_norms = 0.0
+    current_epoch_grads_avg_norms = (0.0, 0.0)
     current_epoch_train_avg_acc = 0.0
     current_epoch_train_avg_loss = 0.0
     current_epoch_val_avg_acc = 0.0
@@ -72,7 +72,7 @@ def train(args, dataloaders):
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
             local_net, train_loss, train_acc = local_train(args, net, train_loader,
-                                                    pbar=step_iter, pbar_dict=pbar_dict)
+                                                           pbar=step_iter, pbar_dict=pbar_dict)
 
             train_avg_acc += (train_acc / args.num_client_agg)
             train_avg_loss += (train_loss / args.num_client_agg)
@@ -91,11 +91,13 @@ def train(args, dataloaders):
         grads_flattened = flatten_tensor(grads_list)
 
         # clip grads
+        # grads_max_amp, _ = torch.max(torch.abs(grads_flattened), dim=-1)
         grads_norms = torch.norm(grads_flattened, p=2, dim=-1)
         clip_factor = torch.max(torch.ones_like(grads_norms), grads_norms / args.clip)
         grads_flattened_clipped = torch.div(grads_flattened, clip_factor.reshape(-1, 1))
 
-        current_epoch_grads_norms_list.append(float(grads_norms.mean()))
+        current_epoch_grads_norms_list.append((float(grads_norms.mean()),
+                                               float(torch.norm(grads_flattened_clipped, p=2, dim=-1).mean())))
 
         # noise grads
         noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
@@ -106,7 +108,8 @@ def train(args, dataloaders):
         aggregated_grads = noised_grads.mean(dim=0)
 
         # update global net
-        global_lr = args.global_lr * args.num_client_agg / args.num_private_clients
+        global_lr = args.global_lr
+        # global_lr = args.global_lr * args.num_client_agg / args.num_private_clients
         # global_lr = max(args.min_global_lr,  args.global_lr ** (step // steps_in_epoch))
         # logger.debug(f'Global learning rate: {global_lr}')
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
@@ -115,22 +118,29 @@ def train(args, dataloaders):
             val_results = eval_model(args, net, private_clients, val_loaders)
 
             val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
-                val_avg_acc, val_avg_loss, val_avg_acc_score, val_avg_f1 = val_results
+            val_avg_acc, val_avg_loss, val_avg_acc_score, val_avg_f1 = val_results
 
             current_epoch_val_avg_acc_list.append(val_avg_acc)
             if len(current_epoch_val_avg_acc_list) >= (float(steps_in_epoch) / float(args.eval_every)):
                 current_epoch_train_avg_loss = np.mean(current_epoch_train_avg_loss_list)
-                current_epoch_grads_avg_norms = np.mean(current_epoch_grads_norms_list)
-                logger.info(f'Train avg grads norms: {current_epoch_grads_avg_norms:.4f}')
-                logger.info(f'Train avg grads norms list: {current_epoch_grads_norms_list}')
+                current_epoch_grads_avg_norms = (np.mean([elem[0] for elem in current_epoch_grads_norms_list]),
+                                                 np.mean([elem[1] for elem in current_epoch_grads_norms_list]))
+                # logger.info(f'******************** step  {step}  epoch {step // steps_in_epoch} lr {args.lr}')
+                # logger.info(f'Train avg grads norms: {current_epoch_grads_avg_norms}')
+                # logger.info(f'Train avg grads norms list: {current_epoch_grads_norms_list}')
                 current_epoch_grads_norms_list = []
-                logger.info(f'Train avg loss: {current_epoch_train_avg_loss:.4f}')
-                logger.info(f'Train avg loss list: {current_epoch_train_avg_loss_list}')
+                # logger.info(f'Train avg loss list: {current_epoch_train_avg_loss_list}')
+                # logger.info(f'Train avg loss: {current_epoch_train_avg_loss:.4f}')
                 current_epoch_train_avg_loss_list = []
                 current_epoch_train_avg_acc = np.mean(current_epoch_train_avg_acc_list)
+                # logger.info(f'Train avg acc list: {current_epoch_train_avg_acc_list}')
+                # logger.info(f'Train avg acc: {current_epoch_train_avg_acc:.4f}')
                 current_epoch_train_avg_acc_list = []
                 current_epoch_val_avg_acc = np.mean(current_epoch_val_avg_acc_list)
+                # logger.info(f'Val avg acc list: {current_epoch_val_avg_acc_list}')
+                # logger.info(f'Val avg acc: {current_epoch_val_avg_acc:.4f}')
                 current_epoch_val_avg_acc_list = []
+                args.lr *= args.lr_dec_rate
 
                 if current_epoch_val_avg_acc > best_acc:
                     best_acc = current_epoch_val_avg_acc
@@ -148,10 +158,10 @@ def train(args, dataloaders):
             log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, best_f1, best_loss,
                       step,
                       current_epoch_train_avg_loss, current_epoch_train_avg_acc,
-                      val_acc_dict,val_acc_score_dict,
+                      val_acc_dict, val_acc_score_dict,
                       current_epoch_val_avg_acc,
                       val_avg_acc_score, val_avg_f1, val_avg_loss,
-                      val_f1s_dict, val_loss_dict, global_lr = global_lr)
+                      val_f1s_dict, val_loss_dict, grads_norms=current_epoch_grads_avg_norms[0], lr=args.lr)
 
     # # calibration
     # for j, c_id in enumerate(private_clients):
@@ -183,7 +193,6 @@ def train(args, dataloaders):
         logtest2wandb(test_avg_acc)
     # if args.wandb:
     #     wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
-
 
     update_frame(args, dp_method='SGD_DP', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
                  test_avg_acc=test_avg_acc)
