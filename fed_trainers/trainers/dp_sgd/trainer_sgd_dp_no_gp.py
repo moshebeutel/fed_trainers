@@ -158,15 +158,26 @@ def train(args, dataloaders):
                     del best_model
                     best_model = copy.deepcopy(net)
 
-        # Monitor using Weights & Biases
-        if args.wandb:
-            log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, best_f1, best_loss,
-                      step,
-                      current_epoch_train_avg_loss, current_epoch_train_avg_acc,
-                      val_acc_dict, val_acc_score_dict,
-                      current_epoch_val_avg_acc,
-                      val_avg_acc_score, val_avg_f1, val_avg_loss,
-                      val_f1s_dict, val_loss_dict, grads_norms=current_epoch_grads_avg_norms[0], lr=args.lr, clip=args.clip)
+                # Monitor using Weights & Biases
+                if args.wandb:
+                    log2wandb(train_acc_of_best_model,
+                              best_acc,
+                              best_acc_score,
+                              best_epoch,
+                              best_f1,
+                              best_loss,
+                              step,
+                              current_epoch_train_avg_loss,
+                              current_epoch_train_avg_acc,
+                              val_acc_dict,
+                              val_acc_score_dict,
+                              current_epoch_val_avg_acc,
+                              val_avg_acc_score, val_avg_f1, val_avg_loss,
+                              val_f1s_dict, val_loss_dict,
+                              grads_norms=current_epoch_grads_avg_norms[0],
+                              lr=args.lr,
+                              clip=args.clip,
+                              global_lr=global_lr)
 
     # # calibration
     # for j, c_id in enumerate(private_clients):

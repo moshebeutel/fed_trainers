@@ -604,7 +604,8 @@ def log2wandb(train_acc_of_best_model,
               val_loss_dict,
               grads_norms = None,
               lr=None,
-              clip=None):
+              clip=None,
+              global_lr=None):
     log_dict = {}
     log_dict.update(
         {
@@ -620,12 +621,11 @@ def log2wandb(train_acc_of_best_model,
             'val_best_acc': best_acc,
             # 'test_best_acc_score': best_acc_score,
             # 'test_best_f1': best_f1,
-            'val_best_epoch': best_epoch,
-            'clip': clip
+            'val_best_epoch': best_epoch
         }
     )
     if lr is not None:
-        log_dict.update({'lr': lr, 'grads_norms': grads_norms})
+        log_dict.update({'lr': lr, 'grads_norms': grads_norms, 'clip': clip, 'global_lr': global_lr})
 
     # log_dict.update({f"test_acc_{l}": m for (l, m) in val_acc_dict.items()})
     # log_dict.update({f"test_loss_{l}": m for (l, m) in val_loss_dict.items()})
@@ -651,7 +651,7 @@ def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, glob
     offset = 0
     for n, p in prev_params.items():
         num_layer_elements = p.numel()
-        params[n] = (1 - global_lr) * p + global_lr * aggregated_grads[offset: offset + num_layer_elements].reshape(
+        params[n] = p + global_lr * aggregated_grads[offset: offset + num_layer_elements].reshape(
             p.shape)
         offset += num_layer_elements
     # update new parameters of global net
