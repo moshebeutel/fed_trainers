@@ -85,6 +85,10 @@ def main():
     parser.add_argument("--csv_path", type=str, default=(working_dir / "csv").as_posix(), help="dir path for csv file")
     parser.add_argument("--csv_name", type=str, default="cifar10_sgd_dp.csv", help="dir path for csv file")
 
+
+    parser.add_argument("--sweep_metric_name", type=str, default="test_acc", help="metric to maximize/minimize in sweep")
+    parser.add_argument("--sweep_metric_goal", type=str, default="maximize", choices=['maximize', 'minimize'], help="maximize or minimize in sweep")
+
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
@@ -123,11 +127,11 @@ def main():
         "name": f"noise{args.noise_multiplier}_SGD_DP_CIFAR10",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
-        "metric": {"goal": "maximize", "name": "test_acc"},
+        "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"values": [1e-2]},
+            "lr": {"values": [1e-3, 1e-2, 1e-1]},
             "lr_dec_rate": {"values": [0.95, 1.0]},
-            "global_lr": {"values": [1e-2, 1e-1]},
+            "global_lr": {"values": [5e-2, 1e-1, 5e-1]},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
