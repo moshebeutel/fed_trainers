@@ -382,7 +382,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
             pbar_dict.update({"Inner Step": f'{(i + 1)}'.zfill(3),
                               "Batch": f'{(k + 1)}'.zfill(3),
-                              "Train Current Loss": f'{loss.item():5.2f}'.zfill(3)})
+                              "Train Current Loss": f'{loss.item() * Y.shape[0]:5.2f}'.zfill(3)})
             pbar.set_postfix(pbar_dict)
 
         # end of for k, batch in enumerate(train_loader):
@@ -603,7 +603,8 @@ def log2wandb(train_acc_of_best_model,
               val_f1s_dict,
               val_loss_dict,
               grads_norms = None,
-              lr=None):
+              lr=None,
+              clip=None):
     log_dict = {}
     log_dict.update(
         {
@@ -619,7 +620,8 @@ def log2wandb(train_acc_of_best_model,
             'val_best_acc': best_acc,
             # 'test_best_acc_score': best_acc_score,
             # 'test_best_f1': best_f1,
-            'val_best_epoch': best_epoch
+            'val_best_epoch': best_epoch,
+            'clip': clip
         }
     )
     if lr is not None:

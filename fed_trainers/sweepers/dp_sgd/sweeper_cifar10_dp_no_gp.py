@@ -67,7 +67,7 @@ def main():
     parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
     parser.add_argument("--num_private_clients", type=int, default=num_users - num_public_clients, help="number of private clients")
     parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
-    parser.add_argument("--classes_per_client", type=int, default=2, help="number of classes each client experience")
+    parser.add_argument("--classes_per_client", type=int, default=10, help="number of classes each client experience")
 
     #############################
     #       General args        #
@@ -92,31 +92,60 @@ def main():
     logger = set_logger(args)
     logger.info(f"Args: {args}")
 
+    # sweep_configuration = {
+    #     "name": f"nonoise_SGD_DP_CIFAR10",
+    #     # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
+    #     "method": "grid",
+    #     "metric": {"goal": "maximize", "name": "test_acc"},
+    #     "parameters": {
+    #         "lr": {"values": [1e-2]},
+    #         "lr_dec_rate": {"values": [1.0]},
+    #         "global_lr": {"values": [1e-1, 1e-2]},
+    #         # "min_global_lr": {"values": [0.5, 0.1]},
+    #         # "eps": {"values": [8]},
+    #         "seed": {"values": [args.seed]},
+    #         # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
+    #         # "batch_size": {"values": [args.batch_size]},
+    #         # "num_public_clients": {"values": [args.num_public_clients]},
+    #         "clip": {"values": [10, 1, 1e-1]},
+    #         # "calibration_split": {"values": [0.0]},
+    #         # "inner_steps": {"values": [1, 3]},
+    #         # "wd": {"values": [1e-4]},
+    #         "n_epochs": {"values": [10]},
+    #         # "optimizer": {"values": ["sgd"]},
+    #         # "num_client_agg": {"values": [args.num_client_agg]},
+    #         # "model_name": {"values": ["CNNTarget", "ResNet"]},
+    #         "noise_multiplier": {"values": [args.noise_multiplier]}
+    #     },
+    # }
+
     sweep_configuration = {
-        "name": f"agg{args.num_client_agg}_minglr{args.min_global_lr}_SGD_DP_CIFAR10_epsilon_{args.eps}",
+        "name": f"noise{args.noise_multiplier}_SGD_DP_CIFAR10",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
-        "method": "grid",
+        "method": "bayes",
         "metric": {"goal": "maximize", "name": "test_acc"},
         "parameters": {
-            "lr": {"values": [1e-3]},
-            "lr_dec_rate": {"values": [1.0, 0.9]},
-            # "global_lr": {"values": [0.999, 0.9]},
-            # "min_global_lr": {"values": [0.5, 0.1]},
-            # "eps": {"values": [8]},
+            "lr": {"values": [1e-2]},
+            "lr_dec_rate": {"values": [0.95, 1.0]},
+            "global_lr": {"values": [1e-2, 1e-1]},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            # "clip": {"values": [1e-4, 1]},
+            "clip": {"values": [1e-2, 1e-1, 1, 10]},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
-            # "wd": {"values": [1e-4]},
-            # "n_epochs": {"values": [50]},
+            "wd": {"values": [1e-4, 1e-3]},
+            "n_epochs": {"values": [15]},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
+            "noise_multiplier": {"values": [args.noise_multiplier]}
         },
+        "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
+
+
     sweep(sweep_config=sweep_configuration, args=args,
           train_fn=trainer_cifar10_dp_no_gp.train)
 

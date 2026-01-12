@@ -40,7 +40,9 @@ def train(args, dataloaders):
     current_epoch_train_avg_loss = 0.0
     current_epoch_val_avg_acc = 0.0
     step_iter = trange(num_steps)
-    pbar_dict = {'Step': '0', 'Client': '0',
+    pbar_dict = {'Step': '0',
+                 'Epoch': '0',
+                 # 'Client': '0',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
 
@@ -64,7 +66,8 @@ def train(args, dataloaders):
             train_loader = train_loaders[c_id]
 
             pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3),
-                              'Client': f'{c_id}'.zfill(3),
+                              # 'Client': f'{c_id}'.zfill(3),
+                              'Epoch': f'{(step // steps_in_epoch) + 1}'.zfill(3),
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
                               'Train Current Loss': f'{0.:.2f}'.zfill(5),
@@ -94,6 +97,7 @@ def train(args, dataloaders):
         # clip grads
         # grads_max_amp, _ = torch.max(torch.abs(grads_flattened), dim=-1)
         grads_norms = torch.norm(grads_flattened, p=2, dim=-1)
+        # args.clip = grads_norms.min() * 0.9
         clip_factor = torch.max(torch.ones_like(grads_norms), grads_norms / args.clip)
         grads_flattened_clipped = torch.div(grads_flattened, clip_factor.reshape(-1, 1))
 
@@ -162,7 +166,7 @@ def train(args, dataloaders):
                       val_acc_dict, val_acc_score_dict,
                       current_epoch_val_avg_acc,
                       val_avg_acc_score, val_avg_f1, val_avg_loss,
-                      val_f1s_dict, val_loss_dict, grads_norms=current_epoch_grads_avg_norms[0], lr=args.lr)
+                      val_f1s_dict, val_loss_dict, grads_norms=current_epoch_grads_avg_norms[0], lr=args.lr, clip=args.clip)
 
     # # calibration
     # for j, c_id in enumerate(private_clients):
