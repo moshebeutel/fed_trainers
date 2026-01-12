@@ -32,5 +32,5 @@ def sweep(sweep_config, args, train_fn):
     logger.info(f'sweep {sweep_config}')
     sweep_id = init_sweep(sweep_config)
     f_sweep = partial(sweep_train, sweep_id=sweep_id, args=args, train_fn=train_fn)
-    wandb.agent(sweep_id=sweep_id, function=f_sweep)
+    # wandb.agent(sweep_id=sweep_id, function=f_sweep)
     start_sweep(sweep_id, f_sweep)
