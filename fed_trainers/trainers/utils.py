@@ -633,6 +633,37 @@ def log2wandb(train_acc_of_best_model,
     # log_dict.update({f"test_f1_{l}": m for (l, m) in val_f1s_dict.items()})
     wandb.log(log_dict)
 
+def create_wandb_report(args, desc="Run Report"):
+    import wandb_workspaces.reports.v2 as wr
+
+    ENTITY='emg_diff_priv'
+    PROJECT='dec25_sweeps'
+
+
+    report = wr.Report(
+        project=PROJECT,
+        title= f'Run Report: {wandb.run.name}',
+        description=desc
+    )  # Create
+
+
+    pg = wr.PanelGrid(
+        runsets=[
+            wr.Runset(ENTITY, PROJECT, f'Run: {wandb.run.name}', filters=f"Tags('training') == {args.run_tag}")
+        ],
+        panels=[
+            wr.LinePlot(x='Step', y=['train_loss'], smoothing_factor=0.8),
+            wr.LinePlot(x='Step', y=['train_acc'], smoothing_factor=0.8),
+            wr.LinePlot(x='Step', y=['val_avg_acc'], smoothing_factor=0.8),
+        ]
+    )
+
+    report.blocks = report.blocks[:1] + [wr.H1("Run Metrics"), pg] + report.blocks[1:]
+    report.save()
+    set_logger(args).info(f"Report saved to {report.url}")
+    return report
+    # wr.Report.from_url(report.url)  # Load
+
 
 def logtest2wandb(test_acc):
     wandb.log({"test_acc": test_acc})

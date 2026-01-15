@@ -1,4 +1,5 @@
 import argparse
+import time
 from pathlib import Path
 
 import torch
@@ -6,7 +7,7 @@ import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
 from fed_trainers.trainers.gep import trainer_gep_public_no_gp
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
-    compute_sample_probability
+    compute_sample_probability, create_wandb_report
 
 
 def get_dataloaders(args):
@@ -37,14 +38,17 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser(description="GEP Public CIFAR10/100 Federated Learning")
     data_name = 'cifar10'
+    num_users = 500
+    num_public_clients = 10
     working_dir = Path(__file__).resolve().parents[2]
+    run_tag = f'gep_public_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+    parser.add_argument('--run_tag', default=run_tag, type=str, help='run tag')
     ##################################
     #       Network args        #
     ##################################
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
     parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
-
     parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
     parser.add_argument('--embed-dim', type=int, default=64)
     parser.add_argument('--use-gp', type=str2bool, default=False)
@@ -52,20 +56,23 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=5)
+    parser.add_argument("--n_epochs", type=int, default=15)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--inner_steps", type=int, default=15, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.9, help="server learning rate")
-    parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=0.1, help="gradient clip")
+    parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
+    parser.add_argument("--num_client_agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
+    parser.add_argument("--lr_dec_rate", type=float, default=0.99, help="learning rate decrease rate")
+    parser.add_argument("--min_global_lr", type=float, default=0.01,
+                        help="min value for decreasing server learning rate")
+    parser.add_argument("--wd", type=float, default=1e-3, help="weight decay")
+    parser.add_argument("--clip", type=float, default=1, help="gradient clip")
     parser.add_argument("--clip_residual", type=float, default=0.1, help="residual clip")
-    parser.add_argument("--noise-multiplier", type=float, default=1.0, help="gradient dp noise factor"
+    parser.add_argument("--noise-multiplier", type=float, default=0.0, help="gradient dp noise factor"
                                                                             " to be multiplied by clip")
-    parser.add_argument("--noise-multiplier-residual", type=float, default=1.0, help="residual part "
+    parser.add_argument("--noise-multiplier-residual", type=float, default=0.0, help="residual part "
                                                                                      "dp noise factor"
                                                                                      " to be multiplied by clip")
     parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
@@ -85,14 +92,14 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp_name", type=str, default='', help="suffix for exp name")
-    parser.add_argument("--save-path", type=str, default=(working_dir / 'saved_models').as_posix(),
+    parser.add_argument("--exp_name", type=str, default='GEP_PUBLIC_CIFAR10', help="suffix for exp name")
+    parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval_every", type=int, default=1, help="eval every X selected epochs")
-    parser.add_argument("--eval_after", type=int, default=1, help="eval only after X selected epochs")
+    parser.add_argument("--eval_after", type=int, default=0, help="eval only after X selected epochs")
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
     parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
@@ -117,10 +124,11 @@ def main():
     #       Clients Args        #
     #############################
 
-    parser.add_argument("--num_clients", type=int, default=500, help="total number of clients")
-    parser.add_argument("--num_private_clients", type=int, default=490, help="number of private clients")
-    parser.add_argument("--num_public_clients", type=int, default=10, help="number of public clients")
-    parser.add_argument("--classes_per_client", type=int, default=2, help="number of simulated clients")
+    parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
+    parser.add_argument("--num_private_clients", type=int, default=num_users-num_public_clients, help="number of private clients")
+    parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
+    parser.add_argument("--classes_per_client", type=int, default=10, help="number of data classes each client has")
+
 
     args = parser.parse_args()
 
@@ -145,10 +153,15 @@ def main():
 
     # Weights & Biases
     if args.wandb:
-        wandb.init(project="dec25_sweeps", name=exp_name)
+        run = wandb.init(project="dec25_sweeps", name=exp_name, tags=[args.run_tag])
         wandb.config.update(args)
+        report = create_wandb_report(args)
+
 
     train(args)
+
+    if args.wandb:
+        run.finish()
 
 if __name__ == '__main__':
     main()

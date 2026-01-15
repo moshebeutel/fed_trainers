@@ -8,8 +8,7 @@ from tqdm import trange
 from fed_trainers.trainers.model import get_model
 from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, \
     log2wandb, \
-    load_aggregated_grads_to_global_net, wandb_plot_confusion_matrix, compute_steps, compute_steps_in_epoch, \
-    logtest2wandb
+    load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch, logtest2wandb
 
 
 def train(args, dataloaders):
@@ -130,20 +129,15 @@ def train(args, dataloaders):
                 current_epoch_train_avg_loss = np.mean(current_epoch_train_avg_loss_list)
                 current_epoch_grads_avg_norms = (np.mean([elem[0] for elem in current_epoch_grads_norms_list]),
                                                  np.mean([elem[1] for elem in current_epoch_grads_norms_list]))
-                # logger.info(f'******************** step  {step}  epoch {step // steps_in_epoch} lr {args.lr}')
-                # logger.info(f'Train avg grads norms: {current_epoch_grads_avg_norms}')
-                # logger.info(f'Train avg grads norms list: {current_epoch_grads_norms_list}')
+
                 current_epoch_grads_norms_list = []
-                # logger.info(f'Train avg loss list: {current_epoch_train_avg_loss_list}')
-                # logger.info(f'Train avg loss: {current_epoch_train_avg_loss:.4f}')
+
                 current_epoch_train_avg_loss_list = []
                 current_epoch_train_avg_acc = np.mean(current_epoch_train_avg_acc_list)
-                # logger.info(f'Train avg acc list: {current_epoch_train_avg_acc_list}')
-                # logger.info(f'Train avg acc: {current_epoch_train_avg_acc:.4f}')
+
                 current_epoch_train_avg_acc_list = []
                 current_epoch_val_avg_acc = np.mean(current_epoch_val_avg_acc_list)
-                # logger.info(f'Val avg acc list: {current_epoch_val_avg_acc_list}')
-                # logger.info(f'Val avg acc: {current_epoch_val_avg_acc:.4f}')
+
                 current_epoch_val_avg_acc_list = []
                 args.lr *= args.lr_dec_rate
 
@@ -178,6 +172,7 @@ def train(args, dataloaders):
                               lr=args.lr,
                               clip=args.clip,
                               global_lr=global_lr)
+
 
     # # calibration
     # for j, c_id in enumerate(private_clients):

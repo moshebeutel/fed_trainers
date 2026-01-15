@@ -37,16 +37,18 @@ def train(args, dataloaders):
     reconstruction_similarity = 0.0
     num_steps = compute_steps(args)
     steps_in_epoch = compute_steps_in_epoch(args)
+    current_epoch_grads_norms_list = []
+    current_epoch_train_avg_acc_list = []
+    current_epoch_train_avg_loss_list = []
     current_epoch_val_avg_acc_list = []
     current_epoch_val_avg_acc = 0.0
     step_iter = trange(num_steps)
 
-    pbar_dict = {'Step': '0', 'Client': '0', 'Public_Private?': 'Public_',
+    pbar_dict = {'Step': '0', 'Epoch': '0', 'Public_Private?': 'Public_',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
     for step in step_iter:
-
-        # initialize global model params
+        # Initialize global model params
         grads = OrderedDict()
         # public_params = OrderedDict()
         public_grads = OrderedDict()
@@ -98,7 +100,9 @@ def train(args, dataloaders):
 
             train_loader = train_loaders[c_id]
 
-            pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3), 'Client': f'{c_id}'.zfill(3),
+            pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3),
+                              #'Client': f'{c_id}'.zfill(3),
+                              'Epoch': f'{(step // steps_in_epoch) + 1}'.zfill(3),
                               'Public_Private?': 'Private',
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
@@ -118,6 +122,9 @@ def train(args, dataloaders):
             for n, p in local_net.named_parameters():
                 grads[n].append(p.data.detach() - prev_params[n])
 
+        current_epoch_train_avg_acc_list.append(train_avg_acc)
+        current_epoch_train_avg_loss_list.append(train_avg_loss)
+
         # stack sampled clients grads
         grads_list = [torch.stack(grads[n]) for n, p in net.named_parameters()]
 
@@ -132,9 +139,12 @@ def train(args, dataloaders):
         clip_factor = torch.max(torch.ones_like(embedded_grads_norms), embedded_grads_norms / args.clip)
         embedded_grads_clipped = torch.div(embedded_grads, clip_factor.reshape(-1, 1))
 
+        current_epoch_grads_norms_list.append((float(embedded_grads_norms.mean()),
+                                               float(torch.norm(embedded_grads_clipped, p=2, dim=-1).mean())))
+
         # noise grads in embedding subspace
-        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip, size=embedded_grads_clipped.shape).to(
-            device)
+        noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
+                             size=embedded_grads_clipped.shape).to(device)
         noised_embedded_grads = embedded_grads_clipped + noise
 
         # aggregate sampled clients embedded grads and project back to gradient space
@@ -153,8 +163,10 @@ def train(args, dataloaders):
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
         # update global net
-        global_lr = args.global_lr ** (step // steps_in_epoch)
-        logger.debug(f'Global learning rate: {global_lr}')
+        global_lr = args.global_lr
+        # global_lr = args.global_lr * args.num_client_agg / args.num_private_clients
+        # global_lr = max(args.min_global_lr,  args.global_lr ** (step // steps_in_epoch))
+        # logger.debug(f'Global learning rate: {global_lr}')
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
 
         # Evaluate model
@@ -166,13 +178,25 @@ def train(args, dataloaders):
 
             current_epoch_val_avg_acc_list.append(val_avg_acc)
             if len(current_epoch_val_avg_acc_list) >= (float(steps_in_epoch) / float(args.eval_every)):
+                current_epoch_train_avg_loss = np.mean(current_epoch_train_avg_loss_list)
+                current_epoch_grads_avg_norms = (np.mean([elem[0] for elem in current_epoch_grads_norms_list]),
+                                                 np.mean([elem[1] for elem in current_epoch_grads_norms_list]))
+
+                current_epoch_grads_norms_list = []
+
+                current_epoch_train_avg_loss_list = []
+                current_epoch_train_avg_acc = np.mean(current_epoch_train_avg_acc_list)
+
+                current_epoch_train_avg_acc_list = []
                 current_epoch_val_avg_acc = np.mean(current_epoch_val_avg_acc_list)
+
                 current_epoch_val_avg_acc_list = []
+                args.lr *= args.lr_dec_rate
 
                 if current_epoch_val_avg_acc > best_acc:
                     best_acc = current_epoch_val_avg_acc
                     best_loss = val_avg_loss
-                    train_acc_of_best_model = train_avg_acc
+                    train_acc_of_best_model = current_epoch_train_avg_acc
                     # best_acc_score = val_avg_acc_score
                     # best_f1 = val_avg_f1
                     best_epoch = step
@@ -180,25 +204,58 @@ def train(args, dataloaders):
                     del best_model
                     best_model = copy.deepcopy(net)
 
-        # Monitor using Weights & Biases
-        if args.wandb:
-            log2wandb(train_acc_of_best_model, best_acc, best_acc_score, best_epoch, best_f1, best_loss,
-                      step,
-                      train_avg_loss, train_avg_acc,
-                      val_acc_dict,val_acc_score_dict,
-                      current_epoch_val_avg_acc,
-                      val_avg_acc_score, val_avg_f1, val_avg_loss,
-                      val_f1s_dict, val_loss_dict)
+                # Monitor using Weights & Biases
+                if args.wandb:
+                    log2wandb(train_acc_of_best_model,
+                              best_acc,
+                              best_acc_score,
+                              best_epoch,
+                              best_f1,
+                              best_loss,
+                              step,
+                              current_epoch_train_avg_loss,
+                              current_epoch_train_avg_acc,
+                              val_acc_dict,
+                              val_acc_score_dict,
+                              current_epoch_val_avg_acc,
+                              val_avg_acc_score, val_avg_f1, val_avg_loss,
+                              val_f1s_dict, val_loss_dict,
+                              grads_norms=current_epoch_grads_avg_norms[0],
+                              lr=args.lr,
+                              clip=args.clip,
+                              global_lr=global_lr)
+
+
+    # # calibration
+    # for j, c_id in enumerate(private_clients):
+    #     calib_loader = val_loaders[c_id]
+    #
+    #     pbar_dict.update(
+    #         {
+    #             'Step': 'Cal',
+    #             'Client': f'{c_id}'.zfill(3),
+    #             'Client Number in Step': f'{(j + 1)}'.zfill(3),
+    #             # 'Train Avg Loss': f'{train_avg_loss:.4f}',
+    #             # 'Train Current Loss': f'{0.:.2f}'.zfill(5),
+    #             # 'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
+    #             # 'Val Avg Acc': f'{val_avg_acc:.4f}',
+    #             # 'Best Avg Acc': f'{best_acc:.4f}'})
+    #         })
+    #     local_net, clib_avg_loss = local_train(args, net, calib_loader,
+    #                                            pbar=step_iter, pbar_dict=pbar_dict)
 
     # Test best model
-    test_results = eval_model(args, best_model, private_clients, test_loaders)
+    test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=False)
 
-    _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
+    y_true_all, y_pred_all, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
+    # _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
 
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 
     if args.wandb:
         logtest2wandb(test_avg_acc)
+    # if args.wandb:
+    #     wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
 
 
     update_frame(args, dp_method='GEP_PUBLIC', epoch_of_best_val=best_epoch, best_val_acc=best_acc,

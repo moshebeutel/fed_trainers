@@ -24,7 +24,7 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=300, help="number of epochs to train")
+    parser.add_argument("--n_epochs", type=int, default=30, help="number of epochs to train")
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--clip", type=float, default=1, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument('--eps', default=-1, type=float, help='privacy parameter epsilon')
+    parser.add_argument('--eps', default=8, type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
@@ -124,27 +124,28 @@ def main():
     # }
 
     sweep_configuration = {
-        "name": f"noise{args.noise_multiplier}_SGD_DP_CIFAR10",
+        "name": f"eps{args.eps}_epochs{args.n_epochs}_SGD_DP_CIFAR10",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"values": [1e-3, 1e-2, 1e-1]},
+            "lr": {"min": 1e-2, "max": 1e-1},
             "lr_dec_rate": {"values": [0.95, 1.0]},
-            "global_lr": {"values": [5e-2, 1e-1, 5e-1]},
+            "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"values": [1e-2, 1e-1, 1, 10]},
+            "clip": {"min": 2e-2, "max": 4.7e-2},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
-            "wd": {"values": [1e-4, 1e-3]},
-            "n_epochs": {"values": [15]},
+            "wd": {"values": [1e-3]},
+            "n_epochs": {"values": [args.n_epochs]},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
-            "noise_multiplier": {"values": [args.noise_multiplier]}
+            # "noise_multiplier": {"values": [args.noise_multiplier]}
+            "eps": {"values": [args.eps]}
         },
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }

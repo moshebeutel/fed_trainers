@@ -1,4 +1,5 @@
 import argparse
+import time
 from pathlib import Path
 
 import torch
@@ -6,7 +7,7 @@ import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
 from fed_trainers.trainers.dp_sgd import trainer_sgd_dp_no_gp
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
-    compute_sample_probability
+    compute_sample_probability, create_wandb_report
 
 
 def get_dataloaders(args):
@@ -40,6 +41,8 @@ def main():
     num_users = 500
     num_public_clients = 0
     working_dir = Path(__file__).resolve().parents[2]
+    run_tag = f'sgd_dp_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+    parser.add_argument('--run_tag', default=run_tag, type=str, help='run tag')
     ##################################
     #       Network args        #
     ##################################
@@ -64,7 +67,7 @@ def main():
     parser.add_argument("--lr_dec_rate", type=float, default=0.99, help="learning rate decrease rate")
     parser.add_argument("--min_global_lr", type=float, default=0.01,
                         help="min value for decreasing server learning rate")
-    parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
+    parser.add_argument("--wd", type=float, default=1e-3, help="weight decay")
     parser.add_argument("--clip", type=float, default=1, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
@@ -88,7 +91,7 @@ def main():
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
     parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
-    parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
+    parser.add_argument("--log-dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default="sgd_dp", help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default=(working_dir / 'csv').as_posix(), help="dir path for csv file")
     parser.add_argument("--csv_name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
@@ -101,7 +104,7 @@ def main():
         "--data-name", type=str, default=data_name,
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
-    parser.add_argument("--data_path", type=str, default="data", help="dir path for dataset")
+    parser.add_argument("--data_path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
     parser.add_argument("--num_classes", type=int, default=10, help="total number of clients")
 
     #############################
@@ -137,10 +140,15 @@ def main():
 
     # Weights & Biases
     if args.wandb:
-        wandb.init(project="key_press_emg_toronto", name=exp_name)
+        run = wandb.init(project="dec25_sweeps", name=exp_name, tags=[args.run_tag])
         wandb.config.update(args)
+        report = create_wandb_report(args)
+
 
     train(args)
+
+    if args.wandb:
+        run.finish()
 
 if __name__ == '__main__':
     main()
