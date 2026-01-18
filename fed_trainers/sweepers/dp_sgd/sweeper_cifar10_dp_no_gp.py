@@ -8,8 +8,11 @@ from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
+    data_name = 'cifar10'
+    dp_method = 'sgd_dp'
     parser = argparse.ArgumentParser(
-        description="Sweep SGD_DP Federated Learning CIFAR10")
+        description=f"Sweep {dp_method.upper()} Federated Learning {data_name.upper()}")
+    num_classes = 10 if data_name == 'cifar10' else 100
     num_users = 500
     num_public_clients = 10
     working_dir = Path(__file__).resolve().parents[2]
@@ -18,7 +21,7 @@ def main():
     ##################################
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
-    parser.add_argument("--num-classes", type=int, default=10, help="Number of unique labels")
+    parser.add_argument("--num-classes", type=int, default=num_classes, help="Number of unique labels")
     parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
 
     ##################################
@@ -48,7 +51,7 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp_name", type=str, default='Sweep_SGD_DP_CIFAR10', help="suffix for exp name")
+    parser.add_argument("--exp_name", type=str, default=f'Sweep_{dp_method.upper()}_{data_name.upper()}', help="suffix for exp name")
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -60,14 +63,14 @@ def main():
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default="cifar10",
+        "--data-name", type=str, default=data_name,
         choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
     )
     parser.add_argument("--data_path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
     parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
     parser.add_argument("--num_private_clients", type=int, default=num_users - num_public_clients, help="number of private clients")
     parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
-    parser.add_argument("--classes_per_client", type=int, default=10, help="number of classes each client experience")
+    parser.add_argument("--classes_per_client", type=int, default=num_classes // 5, help="number of classes each client experience")
 
     #############################
     #       General args        #
@@ -80,13 +83,13 @@ def main():
     parser.add_argument("--log_dir", type=str, default=(working_dir / "log").as_posix(),
                         help="dir path for logger file")
     parser.add_argument("--log_level", type=int, default=logging.INFO, help="logger filter")
-    parser.add_argument("--log_name", type=str, default="Sweep_SGD_DP_CIFAR10",
+    parser.add_argument("--log_name", type=str, default=f"Sweep_{dp_method.upper()}_{data_name.upper()}",
                         help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default=(working_dir / "csv").as_posix(), help="dir path for csv file")
-    parser.add_argument("--csv_name", type=str, default="cifar10_sgd_dp.csv", help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
 
 
-    parser.add_argument("--sweep_metric_name", type=str, default="test_acc", help="metric to maximize/minimize in sweep")
+    parser.add_argument("--sweep_metric_name", type=str, default="val_avg_acc", help="metric to maximize/minimize in sweep")
     parser.add_argument("--sweep_metric_goal", type=str, default="maximize", choices=['maximize', 'minimize'], help="maximize or minimize in sweep")
 
     args = parser.parse_args()
@@ -124,22 +127,22 @@ def main():
     # }
 
     sweep_configuration = {
-        "name": f"eps{args.eps}_epochs{args.n_epochs}_SGD_DP_CIFAR10",
+        "name": f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"min": 1e-2, "max": 1e-1},
-            "lr_dec_rate": {"values": [0.95, 1.0]},
-            "global_lr": {"min": 0.1, "max": 1.0},
+            "lr": {"min": 2.5e-2, "max": 2.55e-2},
+            "lr_dec_rate": {"values": [1.0]},
+            "global_lr": {"min": 0.915, "max": 0.935},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"min": 2e-2, "max": 4.7e-2},
+            "clip": {"min": 3.7e-2, "max": 3.9e-2},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
-            "wd": {"values": [1e-3]},
+            "wd": {"min": 8.7e-4, "max": 8.9e-4},
             "n_epochs": {"values": [args.n_epochs]},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},

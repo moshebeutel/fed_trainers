@@ -37,7 +37,8 @@ def train(args):
 
 def main():
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
-    data_name = 'cifar10'
+    data_name = 'cifar100'
+    num_classes = 10 if data_name == 'cifar10' else 100
     num_users = 500
     num_public_clients = 0
     working_dir = Path(__file__).resolve().parents[2]
@@ -80,7 +81,7 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp_name", type=str, default='SGD_DP_CIFAR10', help="suffix for exp name")
+    parser.add_argument("--exp_name", type=str, default=f'SGD_DP_{data_name.upper()}', help="suffix for exp name")
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -105,7 +106,7 @@ def main():
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
     parser.add_argument("--data_path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
-    parser.add_argument("--num_classes", type=int, default=10, help="total number of clients")
+    parser.add_argument("--num_classes", type=int, default=num_classes, help="total number of clients")
 
     #############################
     #       Clients Args        #
@@ -114,7 +115,7 @@ def main():
     parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
     parser.add_argument("--num_private_clients", type=int, default=num_users-num_public_clients, help="number of private clients")
     parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
-    parser.add_argument("--classes_per_client", type=int, default=10, help="number of data classes each client has")
+    parser.add_argument("--classes_per_client", type=int, default=num_classes // 5, help="number of data classes each client has")
 
 
     args = parser.parse_args()
