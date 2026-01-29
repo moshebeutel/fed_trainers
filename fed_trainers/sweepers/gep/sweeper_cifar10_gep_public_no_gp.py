@@ -8,7 +8,8 @@ from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
-    data_name = 'cifar10'
+    data_name = 'cifar100'
+    dp_method = 'gep_public'
     parser = argparse.ArgumentParser(
         description=f"Sweep GEP Public Federated Learning {data_name.upper()}")
     num_classes = 10 if data_name == 'cifar10' else 100
@@ -50,7 +51,7 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp_name", type=str, default=f'Sweep_GEP_PRIVATE_{data_name.upper()}', help="suffix for exp name")
+    parser.add_argument("--exp_name", type=str, default=f'Sweep_{dp_method.upper()}_{data_name.upper()}', help="suffix for exp name")
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -85,9 +86,10 @@ def main():
     parser.add_argument("--eval_after", type=int, default=1, help="eval only after X selected epochs")
 
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
-    parser.add_argument("--log_dir", type=str, default=(working_dir / "log").as_posix(), help="dir path for logger file")
+    parser.add_argument("--log_dir", type=str, default=(working_dir / "log").as_posix(),
+                        help="dir path for logger file")
     parser.add_argument("--log_level", type=int, default=logging.INFO, help="logger filter")
-    parser.add_argument("--log_name", type=str, default=f"Sweep_GEP_PUBLIC_{data_name.upper()}",
+    parser.add_argument("--log_name", type=str, default=f"Sweep_{dp_method.upper()}_{data_name.upper()}",
                         help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default=(working_dir / "csv").as_posix(), help="dir path for csv file")
     parser.add_argument("--csv_name", type=str, default=f"{data_name}_sgd_dp.csv", help="dir path for csv file")
@@ -131,26 +133,26 @@ def main():
     # }
 
     sweep_configuration = {
-        "name": f"eps{args.eps}_epochs{args.n_epochs}_GEP_PUBLIC_{data_name.upper()}",
+        "name": f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
             "lr": {"min": 1e-3, "max": 1e-1},
-            "lr_dec_rate": {"values": [0.98, 1.0]},
-            "global_lr": {"min": 0.2, "max": 0.6},
+            "lr_dec_rate": {"min": 0.9, "max": 1.0},
+            "global_lr": {"min": 0.2, "max": 1.0},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
-            "basis_size": {"values": [args.basis_size]},
-            "gradients_history_size": {"values": [args.gradients_history_size]},
+            "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
+            "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"min": 1e-2, "max": 1.0},
+            "clip": {"min": 1e-4, "max": 1.0},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
-            "wd": {"min": 8e-4, "max": 1e-3},
-            "n_epochs": {"values": [args.n_epochs]},
+            "wd": {"min": 1e-4, "max": 1e-3},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},

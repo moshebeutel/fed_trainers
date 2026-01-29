@@ -8,7 +8,7 @@ from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
-    data_name = 'cifar10'
+    data_name = 'cifar100'
     dp_method = 'sgd_dp'
     parser = argparse.ArgumentParser(
         description=f"Sweep {dp_method.upper()} Federated Learning {data_name.upper()}")
@@ -132,18 +132,18 @@ def main():
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"min": 2.5e-2, "max": 2.55e-2},
-            "lr_dec_rate": {"values": [1.0]},
-            "global_lr": {"min": 0.915, "max": 0.935},
+            "lr": {"min": 1e-2, "max": 1e-1},
+            "lr_dec_rate": {"min": 0.9, "max": 1.0},
+            "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
             # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"min": 3.7e-2, "max": 3.9e-2},
+            "clip": {"min": 1e-4, "max": 1.0},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
-            "wd": {"min": 8.7e-4, "max": 8.9e-4},
-            "n_epochs": {"values": [args.n_epochs]},
+            "wd": {"min": 1e-4, "max": 1e-3},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
