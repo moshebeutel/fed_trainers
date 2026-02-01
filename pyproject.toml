@@ -16,15 +16,18 @@ torchvision = "^0.18"
 tqdm = "^4.66.4"
 wandb = "^0.17.4"
 #gpytorch = {path = "gpytorch"}
-#pyeeg = {path = "pyeeg"}
+pyeeg = {path = "pyeeg"}
+#biolab_utilities = {path = "biolab_utilities"}
 # keypressemg = {path = "../sEMG-TypingDatabase", develop = true}
 #keypressemg = {git = "https://github.com/ANSLab-UHN/sEMG-TypingDatabase.git", rev = "ver_0_1_1", develop = true}
 pandas = "^2.2"
 scikit-learn = "^1.7.2"
 backpack-for-pytorch = "^1.7.1"
-pandas-stubs = "~=2.3.3"
+pandas-stubs = "~=2.2.3"
 wandb-workspaces = "^0.3.3"
 ipykernel = "^7.1.0"
+matplotlib = "^3.10.8"
+tables = "^3.10.2"
 
 [tool.poetry.scripts]
 sweep_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'
@@ -40,6 +43,14 @@ train_cifar10_gep_user_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_
 train_cifar10_gep_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_no_gp:main'
 train_cifar10_gep_public = 'fed_trainers.trainers.gep.trainer_cifar10_gep_public_no_gp:main'
 train_cifar10_gep_public_private = 'fed_trainers.trainers.gep.trainer_cifar10_gep_public_private_no_gp:main'
+
+
+
+sweep_putemg_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_putemg_sgd_dp_no_gp:main'
+sweep_putemg_gep_public = 'fed_trainers.sweepers.gep.sweeper_putemg_gep_public_no_gp:main'
+
+train_putemg_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_putEMG_dp_no_gp:main'
+train_putemg_gep_public = 'fed_trainers.trainers.gep.trainer_putEMG_gep_public_no_gp:main'
 
 [build-system]
 requires = ["poetry-core"]

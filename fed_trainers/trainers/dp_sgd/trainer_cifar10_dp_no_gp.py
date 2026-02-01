@@ -1,7 +1,6 @@
 import argparse
 import time
 from pathlib import Path
-
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
