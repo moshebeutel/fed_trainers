@@ -40,7 +40,7 @@ def main():
     ##################################
     parser.add_argument("--num-blocks", type=int, default=3)
     parser.add_argument("--block-size", type=int, default=3)
-
+    parser.add_argument("--model_name", type=str, choices=['FeatureModel', 'ResNet'], default='FeatureModel')
     parser.add_argument("--depth_power", type=int, default=1)
     parser.add_argument("--num-classes", type=int, default=num_classes, help="Number of unique labels")
     parser.add_argument("--num-features", type=int, default=384, help="Number of extracted features (model input size)")

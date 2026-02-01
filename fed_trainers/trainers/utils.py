@@ -567,7 +567,7 @@ def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc,
         'basis_size': args.basis_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
         'dp_method': dp_method,
         'epoch_of_best_val': epoch_of_best_val,
-        'model_name': args.model_name,
+        # 'model_name': args.model_name,
         'best_val_acc': best_val_acc,
         'test_avg_acc': test_avg_acc,
         'reconstruction_similarity': reconstruction_similarity
