@@ -69,8 +69,8 @@ def main():
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default=data_name,
-        choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
+        "--data_name", type=str, default=data_name,
+        choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data_path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
     parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
@@ -145,17 +145,14 @@ def main():
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
             "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
-            # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             # "batch_size": {"values": [args.batch_size]},
-            # "num_public_clients": {"values": [args.num_public_clients]},
             "clip": {"min": 1e-4, "max": 1.0},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs * 2},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
-            # "model_name": {"values": ["CNNTarget", "ResNet"]},
             # "noise_multiplier": {"values": [args.noise_multiplier]}
             "eps": {"values": [args.eps]}
         },

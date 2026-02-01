@@ -7,13 +7,13 @@ import torch
 
 
 def get_user_list():
-    # return ['03', '04', '05', '06', '07', '08', '09', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
-    #         '22', '23', '24', '25', '26', '27', '29', '30', '31', '33', '34', '35', '36', '38', '39', '42', '43', '45',
-    #         '46', '47', '48', '49', '50', '51', '53', '54']
-
-    return ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+    return ['03', '04', '05', '06', '07', '08', '09', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
             '22', '23', '24', '25', '26', '27', '29', '30', '31', '33', '34', '35', '36', '38', '39', '42', '43', '45',
             '46', '47', '48', '49', '50', '51', '53', '54']
+
+    # return ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+    #         '22', '23', '24', '25', '26', '27', '29', '30', '31', '33', '34', '35', '36', '38', '39', '42', '43', '45',
+    #         '46', '47', '48', '49', '50', '51', '53', '54']
 
 
 def get_num_users():
@@ -71,35 +71,63 @@ def get_dataloaders(args):
     for r in records_filtered_by_subject:
         # print("Reading features for input file: ", r)
         filename = os.path.splitext(r.path)[0]
+        if filename == 'features_short_time_emg_gestures-10-sequential-2018-04-05-10-14-14-029':
+            continue
         dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder, filename + '_filtered.hdf5')))
 
         # dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
         #                                                filename + '_filtered_features.hdf5')))
-    features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP'] if args.num_features == 8 * 24 else ["IAV",
-                                                                                                            "AAC",
-                                                                                                            "DASDV",
-                                                                                                            "Kurt",
-                                                                                                            "MAV1",
-                                                                                                            "MAV2",
-                                                                                                            "MAV",
-                                                                                                            "MHW",
-                                                                                                            'RMS',
-                                                                                                            "Skew",
-                                                                                                            "SSI",
-                                                                                                            'VAR',
-                                                                                                            'WL',
-                                                                                                            "MNF",
-                                                                                                            "MDF",
-                                                                                                            "PKF",
-                                                                                                            "MNP",
-                                                                                                            "TTP",
-                                                                                                            "VCF",
-                                                                                                            "OHM"]
+    # features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP'] if args.num_features == 8 * 24 else ["IAV",
+    #                                                                                                         "AAC",
+    #                                                                                                         "DASDV",
+    #                                                                                                         "Kurt",
+    #                                                                                                         "MAV1",
+    #                                                                                                         "MAV2",
+    #                                                                                                         "MAV",
+    #                                                                                                         "MHW",
+    #                                                                                                         'RMS',
+    #                                                                                                         "Skew",
+    #                                                                                                         "SSI",
+    #                                                                                                         'VAR',
+    #                                                                                                         'WL',
+    #                                                                                                         "MNF",
+    #                                                                                                         "MDF",
+    #                                                                                                         "PKF",
+    #                                                                                                         "MNP",
+    #                                                                                                         "TTP",
+    #                                                                                                         "VCF",
+    #                                                                                                         "OHM"]
 
-    logger.debug(f'Found {len(dfs)} dataframes')
+    features = ["IAV",
+                "AAC",
+                "DASDV",
+                # "Kurt",
+                # "MAV1",
+                # "MAV2",
+                "MAV",
+                "MHW",
+                'RMS',
+                # "Skew",
+                "SSI",
+                'VAR',
+                'WL',
+                "MNF",
+                "MDF",
+                "PKF",
+                "MNP",
+                "TTP",
+                "VCF",
+                "OHM"]
+
+    logger.info(f'Found {len(dfs)} dataframes')
+    
+    num_channels = 24
+    num_features_per_channel = len(features)
 
 
+    assert len(features) == args.num_features_per_channel, f'Expected {len(features)} features extracted from each channel'
     assert (len(features) * 24) == args.num_features, f'Expected num features: {len(features) * 24}. Do not match args'
+    
 
     # defines gestures to be used in shallow learn
     gestures = {
@@ -145,6 +173,7 @@ def get_dataloaders(args):
 
                 # strip columns to include only selected channels, eg. only one band
                 cols = [c for c in cols if (ch_range["begin"] <= int(c[c.rindex('_') + 1:]) <= ch_range["end"])]
+                assert len(cols) == args.num_features, f'Expected cols to contain the features. Got {len(cols)}'
 
                 logger.debug(f'Found {len(cols)} columns after strip')
 
@@ -163,13 +192,13 @@ def get_dataloaders(args):
                 logger.debug(f'Test data shape: {test_x.shape}')
 
                 # Change order to channel-features instead of feature-channels
-                X = train_x.reshape(-1, 24, 20)
+                X = train_x.reshape(-1, num_channels, args.num_features_per_channel)
                 X = torch.movedim(X, 1, 2)
-                train_x = X.reshape(-1, 480)
+                train_x = X.reshape(-1, args.num_features)
 
-                X = test_x.reshape(-1, 24, 20)
+                X = test_x.reshape(-1, num_channels, args.num_features_per_channel)
                 X = torch.movedim(X, 1, 2)
-                test_x = X.reshape(-1, 480)
+                test_x = X.reshape(-1, args.num_features)
 
                 train_x_s.append(train_x)
                 test_x_s.append(test_x)

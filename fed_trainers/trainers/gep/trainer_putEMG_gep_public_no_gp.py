@@ -4,17 +4,37 @@ from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.emg_utils import get_dataloaders, get_num_users
-import trainer_gep_public_no_gp
-from fed_trainers.trainers.utils import set_logger, set_seed, str2bool
+from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, log_data_statistics, compute_sample_probability, \
+    compute_steps, get_sigma
+from fed_trainers.trainers.gep import trainer_gep_public_no_gp
 
 def train(args):
     set_seed(args.seed)
-    trainer_gep_public_no_gp.train(args, get_dataloaders(args))
+    dataloaders = get_dataloaders(args)
+    log_data_statistics(dataloaders, args)
 
-if __name__ == '__main__':
+    q = compute_sample_probability(args)
+    steps = compute_steps(args)
+    logger = set_logger(args)
+    logger.info(f"steps: {steps}")
+    logger.info(f"sample probability (q): {q}")
 
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+
+    logger.info(f"noise_multiplier: {args.noise_multiplier}")
+    logger.info(f"actual_epsilon: {actual_epsilon}")
+
+    trainer_gep_public_no_gp.train(args, dataloaders)
+
+def main():
+
+    data_name = 'putEMG'
+    dp_method = 'gep_public'
     parser = argparse.ArgumentParser(description="GEP Public putEMG Federated Learning")
     num_users = get_num_users()
+    num_classes = 8
+    num_public_clients = 5
+    working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
     ##################################
@@ -22,74 +42,80 @@ if __name__ == '__main__':
     parser.add_argument("--block-size", type=int, default=3)
 
     parser.add_argument("--depth_power", type=int, default=1)
-    parser.add_argument("--num-classes", type=int, default=8, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=480, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-classes", type=int, default=num_classes, help="Number of unique labels")
+    parser.add_argument("--num-features", type=int, default=384, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features-per-channel", type=int, default=16, help="Number of extracted features per channel")
+
 
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--num-steps", type=int, default=100)
+    parser.add_argument("--n_epochs", type=int, default=100)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.1, help="server learning rate")
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
+    parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
+    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+    parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
+    parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
-    parser.add_argument("--noise-multiplier", type=float, default=0.1, help="dp noise factor "
+    parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
+    parser.add_argument('--eps', default=8, type=float, help='privacy parameter epsilon')
+    parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
     ##################################
     #       GEP args                 #
     ##################################
-    parser.add_argument("--gradients-history-size", type=int,
+    parser.add_argument("--gradients_history_size", type=int,
                         default=100, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis-size", type=int, default=40, help="number of basis vectors")
+    parser.add_argument("--basis_size", type=int, default=40, help="number of basis vectors")
 
     #############################
     #       General args        #
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp-name", type=str, default='', help="suffix for exp name")
-    parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
+    parser.add_argument("--exp_name", type=str, default=f'{dp_method.upper()}_{data_name.upper()}', help="suffix for exp name")
+    parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
     parser.add_argument('--wandb', type=str2bool, default=False)
-
+    parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
+    parser.add_argument("--eval_every", type=int, default=1, help="eval every X selected epochs")
+    parser.add_argument("--eval_after", type=int, default=0, help="eval only after X selected epochs")
+    parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
+    parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
+                        help='log level: DEBUG, INFO Default: DEBUG.')
+    parser.add_argument("--log-dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
+    parser.add_argument("--log-name", type=str, default=f"{data_name}_{dp_method}", help="dir path for logger file")
+    parser.add_argument("--csv_path", type=str, default=(working_dir / 'csv').as_posix(), help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default=f"{data_name}_{dp_method}.csv", help="dir path for csv file")
+    parser.add_argument('--log-data-statistics', type=str2bool, default=False)
     #############################
     #       Dataset Args        #
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default="putEMG",
+        "--data_name", type=str, default=data_name,
         choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
-    parser.add_argument("--data-path", type=str,
-                        default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
-                        # default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
-                       # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
-                       # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
-                       help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=num_users-5, help="number of private clients")
-    parser.add_argument("--num-public-clients", type=int, default=5, help="number of public clients")
-    parser.add_argument("--classes-per-client", type=int, default=8, help="number of simulated clients")
+    parser.add_argument("--data_path", type=str,
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
+                        # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
+                        help="dir path for dataset")
+    parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
+    parser.add_argument("--num_private_clients", type=int, default=num_users-num_public_clients, help="number of private clients")
+    parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
+    parser.add_argument("--classes_per_client", type=int, default=num_classes,
+                        help="number of classes each client knows")
 
-    #############################
-    #       General args        #
-    #############################
-    parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=4, help="eval only after X selected epochs")
-    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
-    parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="gep_public_emg", help="dir path for logger file")
-    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="emg_gep_public.csv", help="dir path for csv file")
+
 
 
     args = parser.parse_args()
@@ -98,12 +124,31 @@ if __name__ == '__main__':
 
     logger = set_logger(args)
     logger.info(f"Args: {args}")
+    logger.debug('Debug Logger Set')
 
-    exp_name = f'GEP_PUBLIC_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
+    set_seed(args.seed)
+
+    q = compute_sample_probability(args)
+    steps = compute_steps(args)
+
+    logger.info(f"steps: {steps}")
+    logger.info(f"sample probability (q): {q}")
+
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+
+    logger.info(f"noise_multiplier: {args.noise_multiplier}")
+    logger.info(f"actual_epsilon: {actual_epsilon}")
+
+    exp_name = f'{dp_method.upper()}_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
 
     # Weights & Biases
     if args.wandb:
-        wandb.init(project="key_press_emg_toronto", name=exp_name)
+        run = wandb.init(project="dec25_sweeps", name=exp_name, tags=[args.run_tag])
         wandb.config.update(args)
 
     train(args)
+
+    if args.wandb:
+        run.finish()
+if __name__ == '__main__':
+    main()

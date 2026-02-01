@@ -11,7 +11,7 @@ def main():
     data_name = 'cifar10'
     dp_method = 'sgd_dp'
     parser = argparse.ArgumentParser(
-        description=f"Sweep {dp_method.upper()} Federated Learning {data_name.upper()}")
+        description=f"Sweep {dp_method.upper()}  {data_name.upper()} Federated Learning")
     num_classes = 10 if data_name == 'cifar10' else 100
     num_users = 500
     num_public_clients = 10

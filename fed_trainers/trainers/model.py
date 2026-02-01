@@ -179,98 +179,142 @@ class DenseBlock(nn.Module):
         return self._act(self._dropout(self._batch_norm(self._fc(x))))
 
 
+# class FeatureModel(nn.Module):
+#     def __init__(self,
+#                  num_channels=24,
+#                  num_features=8,
+#                  number_of_classes=100,
+#                  cls_layer=True,
+#                  use_softmax=True,
+#                  *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#
+#         self._output_info_fn = logging.info
+#         self._output_debug_fn = logging.debug
+#         self.cls_layer = cls_layer
+#         self.use_softmax = use_softmax
+#         self._output_info_fn(
+#             f'FeatureModel: num_features={num_features} cls_layer={cls_layer} use_softmax={use_softmax}')
+#         self._num_features = num_features
+#         self._num_channels = num_channels
+#         self._num_classes = number_of_classes
+#         self._blk1 = nn.Conv1d(num_channels, 2 * num_channels, 3, padding=1)
+#         self._blk2 = nn.Conv1d(2 * num_channels, 4 * num_channels, 3, padding=1)
+#         self._blk3 = nn.Conv1d(4 * num_channels, 8 * num_channels, 3, padding=1)
+#
+#         self.avgpool = nn.AdaptiveAvgPool1d(1)
+#         self.fc = nn.Linear(8 * num_channels, num_channels)
+#
+#         # self._dense_block1 = DenseBlock(num_features, 2 * num_features)
+#         # use_batchnorm=use_group_norm, use_dropout=use_dropout)
+#
+#         # self._dense_block2 = DenseBlock(2 * num_features, 2 * num_features)
+#         # # use_batchnorm=use_group_norm, use_dropout=use_dropout)
+#         #
+#         # self._dense_block3 = DenseBlock(2 * num_features, 2 * num_features)
+#         # # use_batchnorm=use_group_norm, use_dropout=use_dropout)
+#         #
+#         # self._dense_block4 = DenseBlock(2 * num_features, num_features,
+#         #                                 use_dropout=False, activation='elu')
+#         # use_batchnorm=use_group_norm, use_dropout=use_dropout)
+#
+#         # self._dense_block5 = DenseBlock(4 * num_features, 2 * num_features)
+#         # # use_batchnorm=use_group_norm, use_dropout=use_dropout)
+#
+#         # self._dense_block = DenseBlock(num_features, int(0.5 * num_features))
+#
+#         if self.cls_layer:
+#             self._output = nn.Linear(num_channels, number_of_classes)
+#
+#     def forward(self, x):
+#         self._output_debug_fn(f'input {x.shape}')
+#
+#         # fc1 = self._dense_block1(x)
+#         # self._output_debug_fn(f'fc1 {fc1.shape}')
+#         #
+#         # fc2 = self._dense_block2(fc1)
+#         # self._output_debug_fn(f'fc2 {fc2.shape}')
+#         #
+#         # fc3 = self._dense_block3(fc2)
+#         # self._output_debug_fn(f'fc3 {fc3.shape}')
+#         #
+#         # fc4 = self._dense_block4(fc3)
+#         # self._output_debug_fn(f'fc4 {fc4.shape}')
+#
+#         x = torch.reshape(x, (x.shape[0], self._num_channels, self._num_features))
+#         self._output_debug_fn(f'input {x.shape}')
+#
+#         x = self._blk1(x)
+#         self._output_debug_fn(f'x after blk1 {x.shape}')
+#
+#         x = self._blk2(x)
+#         self._output_debug_fn(f'x after blk2 {x.shape}')
+#
+#         x = self._blk3(x)
+#         self._output_debug_fn(f'x after blk3 {x.shape}')
+#
+#         x = self.avgpool(x)
+#         x = x.view(x.size(0), -1)
+#         self._output_debug_fn(f'x after avgpool {x.shape}')
+#
+#         x = self.fc(x)
+#         self._output_debug_fn(f'x after fc {x.shape}')
+#
+#         output = x
+#         if self.cls_layer:
+#             logits = self._output(x)
+#             self._output_debug_fn(f'logits {logits.shape}')
+#             output = logits
+#             if self.use_softmax:
+#                 probs = F.softmax(logits, dim=1)
+#                 self._output_debug_fn(f'softmax {probs.shape}')
+#                 output = probs
+#
+#         return output
+#
+
 class FeatureModel(nn.Module):
-    def __init__(self,
-                 num_channels=24,
-                 num_features=8,
-                 number_of_classes=100,
-                 cls_layer=True,
-                 use_softmax=True,
-                 *args, **kwargs):
+    def __init__(self, num_features=96, number_of_classes=26, depth_power=5,
+                 cls_layer=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._output_info_fn = logging.info
         self._output_debug_fn = logging.debug
         self.cls_layer = cls_layer
-        self.use_softmax = use_softmax
-        self._output_info_fn(
-            f'FeatureModel: num_features={num_features} cls_layer={cls_layer} use_softmax={use_softmax}')
-        self._num_features = num_features
-        self._num_channels = num_channels
-        self._num_classes = number_of_classes
-        self._blk1 = nn.Conv1d(num_channels, 2 * num_channels, 3, padding=1)
-        self._blk2 = nn.Conv1d(2 * num_channels, 4 * num_channels, 3, padding=1)
-        self._blk3 = nn.Conv1d(4 * num_channels, 8 * num_channels, 3, padding=1)
 
-        self.avgpool = nn.AdaptiveAvgPool1d(1)
-        self.fc = nn.Linear(8 * num_channels, num_channels)
-
-        # self._dense_block1 = DenseBlock(num_features, 2 * num_features)
-        # use_batchnorm=use_group_norm, use_dropout=use_dropout)
-
-        # self._dense_block2 = DenseBlock(2 * num_features, 2 * num_features)
-        # # use_batchnorm=use_group_norm, use_dropout=use_dropout)
-        #
-        # self._dense_block3 = DenseBlock(2 * num_features, 2 * num_features)
-        # # use_batchnorm=use_group_norm, use_dropout=use_dropout)
-        #
-        # self._dense_block4 = DenseBlock(2 * num_features, num_features,
-        #                                 use_dropout=False, activation='elu')
-        # use_batchnorm=use_group_norm, use_dropout=use_dropout)
-
-        # self._dense_block5 = DenseBlock(4 * num_features, 2 * num_features)
-        # # use_batchnorm=use_group_norm, use_dropout=use_dropout)
-
-        # self._dense_block = DenseBlock(num_features, int(0.5 * num_features))
-
+        blocks = [DenseBlock((2**i) * num_features, (2**(i+1)) * num_features) for i in range(depth_power)]
+        blocks.append(DenseBlock((2**depth_power) * num_features, (2**depth_power) * num_features))
+        blocks.extend([DenseBlock((2**(i+1)) * num_features, (2**i) * num_features) for i in range(depth_power-1, -1, -1)])
+        self._blocks = nn.ModuleList(blocks)
+        self._extra_block = DenseBlock(num_features, int((1 / 2) * num_features),
+                                        use_dropout=False, activation='elu')
         if self.cls_layer:
-            self._output = nn.Linear(num_channels, number_of_classes)
+            self._output = nn.Linear(int((1 / 2) * num_features), number_of_classes)
+
+        initialize_weights(self)
+
+        self._output_info_fn(str(self))
+
+        self._output_info_fn(f"Number Parameters: {get_n_params(self)}")
 
     def forward(self, x):
         self._output_debug_fn(f'input {x.shape}')
 
-        # fc1 = self._dense_block1(x)
-        # self._output_debug_fn(f'fc1 {fc1.shape}')
-        #
-        # fc2 = self._dense_block2(fc1)
-        # self._output_debug_fn(f'fc2 {fc2.shape}')
-        #
-        # fc3 = self._dense_block3(fc2)
-        # self._output_debug_fn(f'fc3 {fc3.shape}')
-        #
-        # fc4 = self._dense_block4(fc3)
-        # self._output_debug_fn(f'fc4 {fc4.shape}')
+        for i, block in enumerate(self._blocks):
+            x = block(x)
+            self._output_debug_fn(f'output block {i} {x.shape}')
 
-        x = torch.reshape(x, (x.shape[0], self._num_channels, self._num_features))
-        self._output_debug_fn(f'input {x.shape}')
+        x = self._extra_block(x)
+        self._output_debug_fn(f'extra block {x.shape}')
 
-        x = self._blk1(x)
-        self._output_debug_fn(f'x after blk1 {x.shape}')
-
-        x = self._blk2(x)
-        self._output_debug_fn(f'x after blk2 {x.shape}')
-
-        x = self._blk3(x)
-        self._output_debug_fn(f'x after blk3 {x.shape}')
-
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        self._output_debug_fn(f'x after avgpool {x.shape}')
-
-        x = self.fc(x)
-        self._output_debug_fn(f'x after fc {x.shape}')
-
-        output = x
         if self.cls_layer:
             logits = self._output(x)
             self._output_debug_fn(f'logits {logits.shape}')
-            output = logits
-            if self.use_softmax:
-                probs = F.softmax(logits, dim=1)
-                self._output_debug_fn(f'softmax {probs.shape}')
-                output = probs
+            probs = F.softmax(logits, dim=1)
+            self._output_debug_fn(f'softmax {probs.shape}')
+            x = probs
 
-        return output
+        return x
 
 
 class ResNet(nn.Module):
@@ -434,14 +478,14 @@ def get_model(args):
     #     import keypressemg
     #     from keypressemg.models.feature_model import FeatureModel
     #     model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True, depth_power=args.depth_power)
-    # else:
-    #     assert args.data_name == 'putEMG', 'data_name should be putEMG'
-    #     assert num_classes == 8, 'num_classes should be 8'
+    else:
+        assert args.data_name == 'putEMG', 'data_name should be putEMG'
+        assert num_classes == 8, 'num_classes should be 8'
     #     import keypressemg
     #     from keypressemg.models.feature_model import FeatureModel
-    #     model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
-    #                          depth_power=args.depth_power)
-        # model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
+        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
+                             depth_power=args.depth_power)
+    #     model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
 
     initialize_weights(model)
     return model
