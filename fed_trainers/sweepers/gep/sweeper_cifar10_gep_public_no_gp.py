@@ -8,7 +8,7 @@ from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
-    data_name = 'cifar100'
+    data_name = 'cifar10'
     dp_method = 'gep_public'
     parser = argparse.ArgumentParser(
         description=f"Sweep GEP Public Federated Learning {data_name.upper()}")

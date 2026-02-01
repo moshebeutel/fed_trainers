@@ -448,6 +448,10 @@ def get_model(args):
 
 
 if __name__ == '__main__':
-    model = MLPTarget()
+    block_size = 3
+    num_blocks = 3
+    num_classes = 10
+    in_channels = 3
+    model = model = ResNet(layers=[block_size] * num_blocks, num_classes=num_classes, in_channels=in_channels)
     num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
     print(num_params)

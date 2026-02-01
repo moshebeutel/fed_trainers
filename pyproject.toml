@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"  # 3.9 in dsi servers
+python = "^3.12"  # 3.9 in dsi servers
 torch = "^2.3.0"
 torchvision = "^0.18"
 tqdm = "^4.66.4"
