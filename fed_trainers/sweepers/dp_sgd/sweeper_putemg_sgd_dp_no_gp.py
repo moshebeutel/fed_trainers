@@ -55,7 +55,7 @@ def main():
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
-    parser.add_argument('--wandb', type=str2bool, default=False)
+    parser.add_argument('--wandb', type=str2bool, default=True)
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval_every", type=int, default=1, help="eval every X selected epochs")
     parser.add_argument("--eval_after", type=int, default=0, help="eval only after X selected epochs")

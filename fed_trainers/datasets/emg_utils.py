@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Dict
 import torch
+from torch.utils.data import random_split
 
 
 def get_user_list():
@@ -123,7 +124,7 @@ def get_dataloaders(args):
     
     num_channels = 24
     num_features_per_channel = len(features)
-
+    train_size, val_size = 0.8, 0.2
 
     assert len(features) == args.num_features_per_channel, f'Expected {len(features)} features extracted from each channel'
     assert (len(features) * 24) == args.num_features, f'Expected num features: {len(features) * 24}. Do not match args'
@@ -150,73 +151,81 @@ def get_dataloaders(args):
 
     num_clients = len(splits_all.values())
     train_loaders, val_loaders, test_loaders = {}, {}, {}
-    for id in range(num_clients // 2):
+    # for id in range(num_clients // 2):
+    for id in range(num_clients):
         train_x_s, test_x_s = [], []
         train_y_s, test_y_s = [], []
-        for client_id in [2 * id, 2 * id + 1]:
-            # iterate over each internal data
-            for i_s, subject_data in enumerate(list(splits_all.values())[client_id]):
-                # get data of client
-                # prepare training and testing set based on combination of k-fold split, feature set and gesture set
-                # this is also where gesture transitions are deleted from training and test set
-                # only active part of gesture performance remains
-                data = prepare_data(dfs, subject_data, features, list(gestures.keys()))
+        # for client_id in [2 * id, 2 * id + 1]:
+        # iterate over each internal data
+        client_id = id
+        for i_s, subject_data in enumerate(list(splits_all.values())[client_id]):
+            # get data of client
+            # prepare training and testing set based on combination of k-fold split, feature set and gesture set
+            # this is also where gesture transitions are deleted from training and test set
+            # only active part of gesture performance remains
+            data = prepare_data(dfs, subject_data, features, list(gestures.keys()))
 
-                logger.debug(f'Processing subject {i_s}:  {subject_data}')
-                logger.debug(f'For client: {client_id}')
+            logger.debug(f'Processing subject {i_s}:  {subject_data}')
+            logger.debug(f'For client: {client_id}')
 
-                # list columns containing only feature data
-                regex = re.compile(r'input_[0-9]+_[A-Z]+_[0-9]+')
-                cols = list(filter(regex.search, list(data["train"].columns.values)))
+            # list columns containing only feature data
+            regex = re.compile(r'input_[0-9]+_[A-Z]+_[0-9]+')
+            cols = list(filter(regex.search, list(data["train"].columns.values)))
 
-                logger.debug(f'Found {len(cols)} columns')
+            logger.debug(f'Found {len(cols)} columns')
 
-                # strip columns to include only selected channels, eg. only one band
-                cols = [c for c in cols if (ch_range["begin"] <= int(c[c.rindex('_') + 1:]) <= ch_range["end"])]
-                assert len(cols) == args.num_features, f'Expected cols to contain the features. Got {len(cols)}'
+            # strip columns to include only selected channels, eg. only one band
+            cols = [c for c in cols if (ch_range["begin"] <= int(c[c.rindex('_') + 1:]) <= ch_range["end"])]
+            assert len(cols) == args.num_features, f'Expected cols to contain the features. Got {len(cols)}'
 
-                logger.debug(f'Found {len(cols)} columns after strip')
+            logger.debug(f'Found {len(cols)} columns after strip')
 
-                # extract limited training x and y, only with chosen channel configuration
-                train_x = torch.tensor(data["train"][cols].to_numpy(), dtype=torch.float32)
-                train_y = torch.LongTensor(data["train"]["output_0"].to_numpy())
-                train_y[train_y > 5] -= 2
+            # extract limited training x and y, only with chosen channel configuration
+            train_x = torch.tensor(data["train"][cols].to_numpy(), dtype=torch.float32)
+            train_y = torch.LongTensor(data["train"]["output_0"].to_numpy())
+            train_y[train_y > 5] -= 2
 
-                logger.debug(f'Train data shape: {train_x.shape}')
+            logger.debug(f'Train data shape: {train_x.shape}')
 
-                # # extract limited testing x and y, only with chosen channel configuration
-                test_x = torch.tensor(data["test"][cols].to_numpy(), dtype=torch.float32)
-                test_y_true = torch.LongTensor(data["test"]["output_0"].to_numpy())
-                test_y_true[test_y_true > 5] -= 2
+            # # extract limited testing x and y, only with chosen channel configuration
+            test_x = torch.tensor(data["test"][cols].to_numpy(), dtype=torch.float32)
+            test_y_true = torch.LongTensor(data["test"]["output_0"].to_numpy())
+            test_y_true[test_y_true > 5] -= 2
 
-                logger.debug(f'Test data shape: {test_x.shape}')
+            logger.debug(f'Test data shape: {test_x.shape}')
 
-                # Change order to channel-features instead of feature-channels
-                X = train_x.reshape(-1, num_channels, args.num_features_per_channel)
-                X = torch.movedim(X, 1, 2)
-                train_x = X.reshape(-1, args.num_features)
+            # Change order to channel-features instead of feature-channels
+            X = train_x.reshape(-1, num_channels, args.num_features_per_channel)
+            X = torch.movedim(X, 1, 2)
+            train_x = X.reshape(-1, args.num_features)
 
-                X = test_x.reshape(-1, num_channels, args.num_features_per_channel)
-                X = torch.movedim(X, 1, 2)
-                test_x = X.reshape(-1, args.num_features)
+            X = test_x.reshape(-1, num_channels, args.num_features_per_channel)
+            X = torch.movedim(X, 1, 2)
+            test_x = X.reshape(-1, args.num_features)
 
-                train_x_s.append(train_x)
-                test_x_s.append(test_x)
-                train_y_s.append(train_y)
-                test_y_s.append(test_y_true)
+            train_x_s.append(train_x)
+            test_x_s.append(test_x)
+            train_y_s.append(train_y)
+            test_y_s.append(test_y_true)
 
-                logger.debug(f'Train data list length: {len(train_x_s)}')
-                logger.debug(f'Test data list length: {len(test_x_s)}')
+            logger.debug(f'Train data list length: {len(train_x_s)}')
+            logger.debug(f'Test data list length: {len(test_x_s)}')
+
+        dataset = torch.utils.data.TensorDataset(train_x_s[0], train_y_s[0])
+        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
 
         train_loaders[id] = torch.utils.data.DataLoader(
-            torch.utils.data.TensorDataset(train_x_s[0], train_y_s[0]),
+            # torch.utils.data.TensorDataset(train_x_s[0], train_y_s[0]),
+            train_dataset,
             shuffle=True,
             batch_size=args.batch_size,
             num_workers=args.num_workers
         )
 
         val_loaders[id] = torch.utils.data.DataLoader(
-            torch.utils.data.TensorDataset(train_x_s[1], train_y_s[1]),
+            # torch.utils.data.TensorDataset(train_x_s[1], train_y_s[1]),
+            val_dataset,
             shuffle=False,
             batch_size=args.batch_size,
             num_workers=args.num_workers

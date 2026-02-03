@@ -764,9 +764,13 @@ def get_sigma(q, T, eps, delta, init_sigma=10, interval=1., rgp=True):
     cur_sigma = init_sigma
 
     cur_sigma, _ = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
-    interval /= 10
+    interval /= 10.0
     cur_sigma, _ = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
-    interval /= 10
+    interval /= 10.0
+    cur_sigma, _ = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
+    interval /= 10.0
+    cur_sigma, _ = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
+    interval /= 10.0
     cur_sigma, previous_eps = loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rgp=rgp)
     return cur_sigma, previous_eps
 

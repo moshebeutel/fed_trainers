@@ -3,7 +3,6 @@ import logging
 import os
 from pathlib import Path
 import torch
-
 from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.gep import trainer_cifar10_gep_public_no_gp
 from fed_trainers.sweepers.sweep_utils import sweep
@@ -148,7 +147,7 @@ def main():
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"min": 1e-2, "max": 1e-1},
+            "lr": {"min": 1e-3, "max": 1e-1},
             "lr_dec_rate": {"min": 0.9, "max": 1.0},
             "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
@@ -160,7 +159,7 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 5},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 40},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
