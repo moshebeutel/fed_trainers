@@ -140,7 +140,7 @@ def main():
         "parameters": {
             "lr": {"min": 1e-3, "max": 1e-1},
             "lr_dec_rate": {"min": 0.9, "max": 1.0},
-            "global_lr": {"min": 0.2, "max": 1.0},
+            "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
@@ -150,7 +150,7 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs * 2},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 40},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "noise_multiplier": {"values": [args.noise_multiplier]}

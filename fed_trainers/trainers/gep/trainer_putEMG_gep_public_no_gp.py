@@ -31,7 +31,7 @@ def main():
     data_name = 'putEMG'
     dp_method = 'gep_public'
     parser = argparse.ArgumentParser(description="GEP Public putEMG Federated Learning")
-    num_users = get_num_users()
+    num_users = get_num_users() * 2
     num_classes = 8
     num_public_clients = 5
     working_dir = Path(__file__).resolve().parents[2]
