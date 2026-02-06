@@ -49,7 +49,6 @@ def train(args, dataloaders):
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
 
-
     for step in step_iter:
         # Initialize global model params
         grads = OrderedDict()

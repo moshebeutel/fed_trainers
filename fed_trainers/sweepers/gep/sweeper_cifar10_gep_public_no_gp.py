@@ -155,7 +155,7 @@ def main():
             "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
             "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
             # "batch_size": {"values": [args.batch_size]},
-            "clip": {"min": 1e-4, "max": 1.0},
+            "clip": {"min": 1e-1, "max": 5.0},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},

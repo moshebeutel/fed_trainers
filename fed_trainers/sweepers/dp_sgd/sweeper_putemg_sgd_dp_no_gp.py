@@ -13,7 +13,7 @@ def main():
     dp_method = 'sgd_dp'
     parser = argparse.ArgumentParser(description=f"Sweep {dp_method.upper()} {data_name} Federated Learning")
     num_users = get_num_users()
-    num_classes = 8
+    num_classes = 4
     num_public_clients = 5
     working_dir = Path(__file__).resolve().parents[2]
     ##################################
@@ -60,7 +60,7 @@ def main():
     parser.add_argument("--eval_every", type=int, default=1, help="eval every X selected epochs")
     parser.add_argument("--eval_after", type=int, default=0, help="eval only after X selected epochs")
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
-    parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
+    parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log-dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
     parser.add_argument("--log-name", type=str, default=f"{data_name}_{dp_method}", help="dir path for logger file")
@@ -135,12 +135,12 @@ def main():
             "lr_dec_rate": {"min": 0.9, "max": 1.0},
             "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
-            # "batch_size": {"values": [args.batch_size]},
+            "batch_size": {"values": [args.batch_size, args.batch_size*2]},
             "clip": {"min": 1e-4, "max": 1.0},
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs * 2},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 20},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "noise_multiplier": {"values": [args.noise_multiplier]}
