@@ -203,13 +203,27 @@ def get_dataloaders(args):
             X = torch.movedim(X, 1, 2)
             test_x = X.reshape(-1, args.num_features)
 
-            mask_train = (train_y != 0)
-            train_x = train_x[mask_train]
-            train_y = train_y[mask_train] - 1
+            # mask_train = (train_y < 4)
+            # train_x = train_x[mask_train]
+            # train_y = train_y[mask_train]
+            # mask_train = (train_y != 0)
+            # train_x = train_x[mask_train]
+            # train_y = train_y[mask_train] - 1
 
-            mask_test = (test_y_true != 0)
+            # mask_test = (test_y_true < 4)
+            # test_x = test_x[mask_test]
+            # test_y_true = test_y_true[mask_test]
+            # mask_test = (test_y_true != 0)
+            # test_x = test_x[mask_test]
+            # test_y_true = test_y_true[mask_test] - 1
+
+            mask_train = (train_y > 3)
+            train_x = train_x[mask_train]
+            train_y = train_y[mask_train] - 4
+
+            mask_test = (test_y_true > 3)
             test_x = test_x[mask_test]
-            test_y_true = test_y_true[mask_test] - 1
+            test_y_true = test_y_true[mask_test] - 4
 
             train_x_s.append(train_x)
             test_x_s.append(test_x)

@@ -10,7 +10,8 @@ from fed_trainers.trainers.gep.gep_utils import embed_grad, project_back_embeddi
 from fed_trainers.trainers.model import get_model
 from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, \
     log2wandb, \
-    load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch, logtest2wandb
+    load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch, logtest2wandb, \
+    wandb_plot_confusion_matrix
 
 
 def train(args, dataloaders):
@@ -245,7 +246,7 @@ def train(args, dataloaders):
     #                                            pbar=step_iter, pbar_dict=pbar_dict)
 
     # Test best model
-    test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=False)
+    test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=True)
 
     y_true_all, y_pred_all, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
     # _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
@@ -254,8 +255,8 @@ def train(args, dataloaders):
 
     if args.wandb:
         logtest2wandb(test_avg_acc)
-    # if args.wandb:
-    #     wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
+    if args.wandb:
+        wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
 
 
     update_frame(args, dp_method='GEP_PUBLIC', epoch_of_best_val=best_epoch, best_val_acc=best_acc,

@@ -28,6 +28,7 @@ wandb-workspaces = "^0.3.3"
 ipykernel = "^7.1.0"
 matplotlib = "^3.10.8"
 tables = "^3.10.2"
+scipy-stubs = "~=1.15.1"
 
 [tool.poetry.scripts]
 sweep_cifar10_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_cifar10_dp_no_gp:main'

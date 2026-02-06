@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 import wandb
-# from sklearn import metrics
+from sklearn import metrics
 from torch.utils.data import DataLoader, random_split
 
 from fed_trainers.trainers.rdp_accountant import compute_rdp, get_privacy_spent
