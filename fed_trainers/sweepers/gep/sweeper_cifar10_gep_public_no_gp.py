@@ -160,11 +160,7 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-<<<<<<< HEAD
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 40},
-=======
             "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 5},
->>>>>>> ea474ea (GP experiments working)
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},

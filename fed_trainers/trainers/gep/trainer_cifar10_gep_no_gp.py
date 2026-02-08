@@ -32,7 +32,11 @@ def train(args):
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    trainer_gep_private_no_gp.train(args, get_dataloaders(args))
+    if args.use_gp:
+        from fed_trainers.trainers.gep import trainer_gep_public_with_gp as trainer
+    else:
+        from fed_trainers.trainers.gep import trainer_gep_public_no_gp as trainer
+    trainer.train(args, get_dataloaders(args))
 
 def main():
     parser = argparse.ArgumentParser(description="GEP Private CIFAR10/100 Federated Learning")

@@ -1,7 +1,10 @@
 import argparse
 import logging
+import os
 from pathlib import Path
 import torch
+
+from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.dp_sgd import trainer_putEMG_dp_no_gp
 from fed_trainers.datasets.emg_utils import get_num_users
 from fed_trainers.sweepers.sweep_utils import sweep
@@ -10,9 +13,10 @@ from fed_trainers.trainers.utils import set_logger, str2bool
 
 def main():
     data_name = 'putEMG'
+    use_gp = os.environ.get('USE_GP', False)
     dp_method = 'sgd_dp'
     parser = argparse.ArgumentParser(description=f"Sweep {dp_method.upper()} {data_name} Federated Learning")
-    num_users = get_num_users()
+    num_users = get_num_users() * 2
     num_classes = 4
     num_public_clients = 5
     working_dir = Path(__file__).resolve().parents[2]
@@ -24,7 +28,9 @@ def main():
     parser.add_argument("--num-classes", type=int, default=num_classes, help="Number of unique labels")
     parser.add_argument("--num-features", type=int, default=384, help="Number of extracted features (model input size)")
     parser.add_argument("--num-features-per-channel", type=int, default=16, help="Number of extracted features per channel")
-
+    parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
+    parser.add_argument('--embed-dim', type=int, default=64)
+    parser.add_argument('--use-gp', type=str2bool, default=use_gp)
 
     ##################################
     #       Optimization args        #
@@ -32,9 +38,9 @@ def main():
     parser.add_argument("--n_epochs", type=int, default=50)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
-    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
+    parser.add_argument("--num_client_agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
@@ -79,7 +85,7 @@ def main():
     )
     parser.add_argument("--data_path", type=str,
                         # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
-                        default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
+                        default= (working_dir / 'data/EMG/putEMG/Data-HDF5-Features-Short-Time').as_posix(),
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
@@ -97,6 +103,8 @@ def main():
     parser.add_argument("--sweep_metric_name", type=str, default="val_avg_acc", help="metric to maximize/minimize in sweep")
     parser.add_argument("--sweep_metric_goal", type=str, default="maximize", choices=['maximize', 'minimize'], help="maximize or minimize in sweep")
 
+    if use_gp:
+        parser = gp_utils.parse_args(parser)
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
@@ -126,8 +134,11 @@ def main():
     #     },
     # }
 
+    sweep_name = f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}"
+    if use_gp:
+        sweep_name = f"GP_{sweep_name}"
     sweep_configuration = {
-        "name": f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}",
+        "name": sweep_name,
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {

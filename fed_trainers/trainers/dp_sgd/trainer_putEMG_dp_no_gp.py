@@ -1,11 +1,11 @@
 import argparse
-import logging
-import time
 import os
+import time
 from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.emg_utils import get_dataloaders, get_num_users
+from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, log_data_statistics, compute_sample_probability, \
     compute_steps, get_sigma
 
@@ -126,8 +126,8 @@ def main():
     parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
     parser.add_argument("--classes_per_client", type=int, default=num_classes, help="number of classes each client knows")
 
-
-
+    if use_gp:
+        parser = gp_utils.parse_args(parser)
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"

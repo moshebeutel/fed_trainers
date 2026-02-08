@@ -498,10 +498,26 @@ def get_model(args):
 
 
 if __name__ == '__main__':
-    block_size = 3
-    num_blocks = 3
-    num_classes = 10
-    in_channels = 3
-    model = model = ResNet(layers=[block_size] * num_blocks, num_classes=num_classes, in_channels=in_channels)
-    num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
+    # block_size = 3
+    # num_blocks = 3
+    # num_classes = 10
+    # in_channels = 3
+    # model = model = ResNet(layers=[block_size] * num_blocks, num_classes=num_classes, in_channels=in_channels)
+    # num_params = sum([p.numel() for p in model.parameters() if p.requires_grad])
+    # print(num_params)
+
+    num_features = 384
+    num_classes = 8
+    cls_layer = False
+    depth_power = 1
+
+    model = FeatureModel(num_features=num_features, number_of_classes=num_classes,
+                         cls_layer=cls_layer,
+                         depth_power=depth_power)
+
+    params_shapes = "\n".join([f'{n}: {p.shape}' for n,p in model.named_parameters() if p.requires_grad])
+    params_numel = [p.numel() for p in model.parameters() if p.requires_grad]
+    num_params = sum(params_numel)
     print(num_params)
+    print(params_numel)
+    print(params_shapes)

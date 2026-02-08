@@ -137,7 +137,8 @@ def main():
     parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
     parser.add_argument("--classes_per_client", type=int, default=num_classes // 5, help="number of data classes each client has")
 
-
+    if use_gp:
+        parser = gp_utils.parse_args(parser)
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"

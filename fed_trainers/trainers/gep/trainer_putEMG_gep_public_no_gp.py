@@ -42,7 +42,7 @@ def main():
     num_classes = 4
     num_public_clients = 5
     working_dir = Path(__file__).resolve().parents[2]
-    run_tag = f'sgd_dp_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+    run_tag = f'{dp_method}_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
     parser.add_argument('--run_tag', default=run_tag, type=str, help='run tag')
     ##################################
     #       Network args        #
@@ -135,7 +135,8 @@ def main():
 
 
 
-
+    if use_gp:
+        parser = gp_utils.parse_args(parser)
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
