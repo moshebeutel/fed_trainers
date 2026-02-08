@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 import torch
+
 from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.dp_sgd import trainer_cifar10_dp_no_gp
 from fed_trainers.sweepers.sweep_utils import sweep
@@ -17,7 +18,7 @@ def main():
         description=f"Sweep {dp_method.upper()}  {data_name.upper()} Federated Learning")
     num_classes = 10 if data_name == 'cifar10' else 100
     num_users = 20
-    num_public_clients = 2
+    num_public_clients = 0
     working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
@@ -134,11 +135,8 @@ def main():
     #     },
     # }
 
-    sweep_name = f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}"
-    if use_gp:
-        sweep_name = f"GP_{sweep_name}"
     sweep_configuration = {
-        "name": sweep_name,
+        "name": f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_classeseach{args.classes_per_client}_seed{args.seed}",
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
@@ -154,7 +152,11 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
+<<<<<<< HEAD
             "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 40},
+=======
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 5},
+>>>>>>> ea474ea (GP experiments working)
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},

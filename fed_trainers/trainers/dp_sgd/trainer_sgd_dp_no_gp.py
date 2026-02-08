@@ -6,11 +6,18 @@ import torch
 from tqdm import trange
 
 from fed_trainers.trainers.model import get_model
+<<<<<<< HEAD
+from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, \
+    log2wandb, \
+    load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch, logtest2wandb, \
+    wandb_plot_confusion_matrix
+=======
 from fed_trainers.trainers.utils import (get_clients, get_device, local_train, flatten_tensor, eval_model,
     # update_frame, \
                                          log2wandb, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
+>>>>>>> ea474ea (GP experiments working)
 
 
 def train(args, dataloaders):
@@ -48,6 +55,7 @@ def train(args, dataloaders):
                  # 'Client': '0',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
+
 
     for step in step_iter:
         # Initialize global model params

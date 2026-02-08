@@ -473,7 +473,7 @@ def get_model(args):
             model = CIFAR10_CNN_Tanh(3)
         else:
             model = ResNet(layers=[args.block_size] * args.num_blocks,
-                           num_classes=num_classes, in_channels=in_channels, cls_layer=(not args.use_gp))
+                           num_classes=num_classes, in_channels=in_channels, cls_layer=not args.use_gp)
 
         # model = CIFAR10_CNN_Tanh(3)
         logger = set_logger(args)
@@ -489,7 +489,7 @@ def get_model(args):
         assert num_classes == 8, 'num_classes should be 8'
     #     import keypressemg
     #     from keypressemg.models.feature_model import FeatureModel
-        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=(not args.use_gp),
+        model = FeatureModel(num_features=args.num_features, number_of_classes=args.num_classes, cls_layer=True,
                              depth_power=args.depth_power)
     #     model = MLPTarget(num_features=24 * 8, num_classes=num_classes, use_softmax=True)
 
