@@ -1,4 +1,6 @@
 import argparse
+import logging
+import time
 import os
 from pathlib import Path
 import torch
@@ -41,6 +43,8 @@ def main():
     num_classes = 4
     num_public_clients = 5
     working_dir = Path(__file__).resolve().parents[2]
+    run_tag = f'sgd_dp_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+    parser.add_argument('--run_tag', default=run_tag, type=str, help='run tag')
     ##################################
     #       Network args        #
     ##################################
@@ -61,17 +65,17 @@ def main():
     parser.add_argument("--n_epochs", type=int, default=100)
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=5, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+    parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
-    parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
+    parser.add_argument("--lr_dec_rate", type=float, default=0.95, help="learning rate decrease rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument('--eps', default=8, type=float, help='privacy parameter epsilon')
+    parser.add_argument('--eps', default=-1, type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")

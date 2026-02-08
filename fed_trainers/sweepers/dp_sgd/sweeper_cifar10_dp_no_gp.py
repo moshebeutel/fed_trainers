@@ -135,8 +135,11 @@ def main():
     #     },
     # }
 
+    sweep_name = f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}"
+    if use_gp:
+        sweep_name = f"GP_{sweep_name}"
     sweep_configuration = {
-        "name": f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_classeseach{args.classes_per_client}_seed{args.seed}",
+        "name": sweep_name,
         # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
@@ -152,11 +155,7 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-<<<<<<< HEAD
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 40},
-=======
             "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 5},
->>>>>>> ea474ea (GP experiments working)
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
