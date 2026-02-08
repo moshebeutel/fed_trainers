@@ -319,7 +319,7 @@ class FeatureModel(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, layers, num_classes=10, in_channels=3, basic_block_cls=BasicBlock):
+    def __init__(self, layers, num_classes=10, in_channels=3, basic_block_cls=BasicBlock, cls_layer=True):
         super(ResNet, self).__init__()
 
         self._output_info_fn = logging.info
@@ -335,7 +335,9 @@ class ResNet(nn.Module):
             [self._make_layer(basic_block_cls, 2 ** (i + 4), layers[i], stride=2 if i > 0 else 1)
              for i in range(len(layers))])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(2 ** (int(len(layers) + 3)), num_classes)
+        self._cls_layer = cls_layer
+        if cls_layer:
+            self.fc = nn.Linear(2 ** (int(len(layers) + 3)), num_classes)
         # self.fc = FeatureModel(num_features=2 ** (int(len(layers) + 3)),
         #                        number_of_classes=num_classes,
         #                        cls_layer=True,
@@ -376,9 +378,11 @@ class ResNet(nn.Module):
         self._output_debug_fn(f'input {x.shape}')
         x = x.view(x.size(0), -1)
         self._output_debug_fn(f'before feature model input {x.shape}')
-        x = self.fc(x)
-        self._output_debug_fn(f'output {x.shape}')
 
+        if self._cls_layer:
+            x = F.softmax(self.fc(x), dim=1)
+
+        self._output_debug_fn(f'output {x.shape}')
         return x
 
 
@@ -467,7 +471,8 @@ def get_model(args):
             # model = CNNTarget(in_channels=in_channels, n_kernels=args.n_kernels, embedding_dim=args.embed_dim, use_cls_layer=(not args.use_gp))
             model = CIFAR10_CNN_Tanh(3)
         else:
-            model = ResNet(layers=[args.block_size] * args.num_blocks, num_classes=num_classes, in_channels=in_channels)
+            model = ResNet(layers=[args.block_size] * args.num_blocks,
+                           num_classes=num_classes, in_channels=in_channels, cls_layer=not args.use_gp)
 
         # model = CIFAR10_CNN_Tanh(3)
         logger = set_logger(args)

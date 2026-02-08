@@ -1,10 +1,12 @@
 import argparse
+import os
 import time
 from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
-from fed_trainers.trainers.dp_sgd import trainer_sgd_dp_no_gp
+from fed_trainers.trainers import gp_utils
+
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
     compute_sample_probability, create_wandb_report
 
@@ -32,11 +34,17 @@ def train(args):
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    trainer_sgd_dp_no_gp.train(args, get_dataloaders(args))
+    if args.use_gp:
+        from fed_trainers.trainers.dp_sgd import trainer_sgd_dp_with_gp as trainer
+    else:
+        from fed_trainers.trainers.dp_sgd import trainer_sgd_dp_no_gp as trainer
+
+    trainer.train(args, get_dataloaders(args))
 
 def main():
     parser = argparse.ArgumentParser(description="CIFAR10/100 SGD-DP Federated Learning")
-    data_name = 'cifar100'
+    data_name = os.environ.get('DATA_NAME', 'cifar10')
+    use_gp = os.environ.get('USE_GP', 'False')
     num_classes = 10 if data_name == 'cifar10' else 100
     num_users = 500
     num_public_clients = 0
@@ -51,7 +59,7 @@ def main():
     parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
     parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
     parser.add_argument('--embed-dim', type=int, default=64)
-    parser.add_argument('--use-gp', type=str2bool, default=False)
+    parser.add_argument('--use-gp', type=str2bool, default=use_gp)
 
     ##################################
     #       Optimization args        #
@@ -116,7 +124,8 @@ def main():
     parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
     parser.add_argument("--classes_per_client", type=int, default=num_classes // 5, help="number of data classes each client has")
 
-
+    if use_gp:
+        parser = gp_utils.parse_args(parser)
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"

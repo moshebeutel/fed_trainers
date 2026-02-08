@@ -1,20 +1,24 @@
 import argparse
 import logging
+import os
 from pathlib import Path
 import torch
+
+from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.gep import trainer_cifar10_gep_public_no_gp
 from fed_trainers.sweepers.sweep_utils import sweep
 from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
-    data_name = 'cifar10'
+    data_name = os.environ.get('DATA_NAME', 'cifar10')
+    use_gp = os.environ.get('USE_GP', False)
     dp_method = 'gep_public'
     parser = argparse.ArgumentParser(
-        description=f"Sweep GEP Public Federated Learning {data_name.upper()}")
+        description=f"Sweep {dp_method.upper()}  {data_name.upper()} Federated Learning")
     num_classes = 10 if data_name == 'cifar10' else 100
-    num_users = 500
-    num_public_clients = 10
+    num_users = 20
+    num_public_clients = 2
     working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
@@ -23,16 +27,19 @@ def main():
     parser.add_argument("--block-size", type=int, default=3)
     parser.add_argument("--num-classes", type=int, default=num_classes, help="Number of unique labels")
     parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
+    parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
+    parser.add_argument('--embed-dim', type=int, default=64)
+    parser.add_argument('--use-gp', type=str2bool, default=use_gp)
 
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=30)
+    parser.add_argument("--n_epochs", type=int, default=10)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--num_client_agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
@@ -61,8 +68,8 @@ def main():
     #       GEP args                 #
     ##################################
     parser.add_argument("--gradients_history_size", type=int,
-                        default=500, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis_size", type=int, default=50, help="number of basis vectors")
+                        default=50, help="amount of past gradients participating in embedding subspace computation")
+    parser.add_argument("--basis_size", type=int, default=6, help="number of basis vectors")
 
     #############################
     #       Dataset Args        #
@@ -98,9 +105,9 @@ def main():
     parser.add_argument("--sweep_metric_name", type=str, default="val_avg_acc", help="metric to maximize/minimize in sweep")
     parser.add_argument("--sweep_metric_goal", type=str, default="maximize", choices=['maximize', 'minimize'], help="maximize or minimize in sweep")
 
+    if use_gp:
+        parser = gp_utils.parse_args(parser)
     args = parser.parse_args()
-
-
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
@@ -138,9 +145,9 @@ def main():
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"min": 1e-3, "max": 1e-1},
+            "lr": {"min": 1e-2, "max": 1e-1},
             "lr_dec_rate": {"min": 0.9, "max": 1.0},
-            "global_lr": {"min": 0.2, "max": 1.0},
+            "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
             # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
             "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
@@ -150,14 +157,16 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs * 2},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 5},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
+            # "model_name": {"values": ["CNNTarget", "ResNet"]},
             # "noise_multiplier": {"values": [args.noise_multiplier]}
             "eps": {"values": [args.eps]}
         },
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
+
 
     sweep(sweep_config=sweep_configuration, args=args,
           train_fn=trainer_cifar10_gep_public_no_gp.train)

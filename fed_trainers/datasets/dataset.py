@@ -1,10 +1,173 @@
 import random
 from collections import defaultdict
-
 import numpy as np
 import torch.utils.data
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST
+from typing import List, Sequence, Optional
+
+def federated_split(
+    y: Sequence[int],
+    n_clients: int,
+    alpha: float = 1.0,
+    min_per_client: int = 0,
+    seed: Optional[int] = 42,
+    strict_iid_at_one: bool = True,
+) -> List[List[int]]:
+    """
+    Split a labeled dataset into n_clients partitions for federated learning.
+
+    Parameters
+    ----------
+    y : Sequence[int]
+        Labels for each sample (len(y) = number of samples). Can be list/np.ndarray/torch.Tensor/pd.Series.
+    n_clients : int
+        Number of clients.
+    alpha : float, default 1.0
+        User-friendly heterogeneity control where alpha=1.0 => IID.
+        For alpha in [0, 1):
+           We map alpha to a Dirichlet concentration c = alpha / (1 - alpha).
+           Smaller alpha => more non-IID; alpha -> 0 => highly skewed.
+        For alpha == 1.0:
+           We perform a stratified IID split (equal class distribution per client).
+    min_per_client : int, default 0
+        If >0, ensures each client gets at least this many samples (soft constraint via redraws).
+    seed : int or None
+        RNG seed for reproducibility. If None, randomness is not seeded.
+    strict_iid_at_one : bool
+        If True and alpha==1, enforce exact stratified IID (recommended).
+
+    Returns
+    -------
+    List[List[int]]
+        A list of index lists: indices_per_client[i] are the sample indices assigned to client i.
+
+    Notes
+    -----
+    - Dirichlet-based non-IID split: For each class, we draw proportions ~ Dirichlet(c, ..., c)
+      and split that class' indices according to those proportions.
+    - When alpha==1 and strict_iid_at_one is True, each class is evenly and randomly distributed
+      across clients (perfectly IID up to remainder effects).
+    - If min_per_client>0, we redraw the entire allocation until all clients meet the minimum
+      or we hit a reasonable retry limit.
+    """
+
+    # Convert labels to numpy array
+    y = np.asarray(y)
+    n_samples = len(y)
+    assert n_clients >= 1, "n_clients must be >= 1"
+    assert 0.0 <= alpha <= 1.0, "alpha must be in [0, 1], with alpha=1 meaning IID"
+
+    rng = np.random.default_rng(seed)
+
+    classes, y_counts = np.unique(y, return_counts=True)
+    n_classes = len(classes)
+
+    # --- Helper: Stratified IID split (alpha == 1 case) ---
+    def stratified_iid_split() -> List[List[int]]:
+        indices_per_client = [[] for _ in range(n_clients)]
+        # For each class, shuffle and split evenly across clients
+        for cls in classes:
+            cls_idx = np.where(y == cls)[0]
+            rng.shuffle(cls_idx)
+            # Split approximately evenly across clients
+            splits = np.array_split(cls_idx, n_clients)
+            for i, part in enumerate(splits):
+                indices_per_client[i].extend(part.tolist())
+        # Shuffle within client for randomness
+        for i in range(n_clients):
+            rng.shuffle(indices_per_client[i])
+        return indices_per_client
+
+    # Fast path for exact IID
+    if strict_iid_at_one and np.isclose(alpha, 1.0):
+        return stratified_iid_split()
+
+    # --- Dirichlet-based non-IID split for alpha in [0,1) ---
+    # Map alpha in [0,1) to a Dirichlet concentration c in [0, ∞), with alpha=1 -> c=∞ (handled above)
+    # c = alpha / (1 - alpha); clamp to a small positive minimum for numerical stability
+    c = max(alpha / max(1.0 - alpha, 1e-12), 1e-6)
+
+    # Try multiple draws to satisfy min_per_client if requested
+    max_redraws = 200
+    for _ in range(max_redraws):
+        indices_per_client = [[] for _ in range(n_clients)]
+
+        for cls in classes:
+            cls_idx = np.where(y == cls)[0]
+            rng.shuffle(cls_idx)
+            # Draw class proportions across clients
+            proportions = rng.dirichlet(alpha=[c] * n_clients)
+            # Translate proportions into integer split sizes
+            counts = np.floor(proportions * len(cls_idx)).astype(int)
+
+            # Adjust counts to sum exactly to len(cls_idx) (due to flooring)
+            deficit = len(cls_idx) - counts.sum()
+            if deficit > 0:
+                # Distribute leftover items to the largest fractional parts
+                # (use the remainder ranking)
+                remainders = proportions * len(cls_idx) - counts
+                assign_order = np.argsort(-remainders)  # descending
+                for j in assign_order[:deficit]:
+                    counts[j] += 1
+
+            # Now split class indices accordingly
+            assert counts.sum() == len(cls_idx)
+            if len(cls_idx) == 0:
+                continue
+            splits = []
+            start = 0
+            for cnt in counts:
+                end = start + int(cnt)
+                splits.append(cls_idx[start:end])
+                start = end
+            for i, part in enumerate(splits):
+                if len(part) > 0:
+                    indices_per_client[i].extend(part.tolist())
+
+        # Optionally enforce min_per_client via redraws
+        if min_per_client > 0:
+            sizes = [len(lst) for lst in indices_per_client]
+            if min(sizes) >= min_per_client:
+                # Shuffle within each client for randomness
+                for i in range(n_clients):
+                    rng.shuffle(indices_per_client[i])
+                return indices_per_client
+        else:
+            for i in range(n_clients):
+                rng.shuffle(indices_per_client[i])
+            return indices_per_client
+
+    # If we land here, we failed min_per_client constraint within max_redraws: fall back to IID
+    return stratified_iid_split()
+
+
+# -------------------------------
+# Example usage with PyTorch data:
+# -------------------------------
+if __name__ == "__main__":
+    # Example with synthetic labels:
+    # Suppose 10,000 samples, 10 classes, uniform labels
+    n = 10_000
+    n_clients = 5
+    labels = np.repeat(np.arange(10), n // 10)
+
+    # alpha = 1.0 -> IID
+    idxs_iid = federated_split(labels, n_clients=n_clients, alpha=1.0, seed=0)
+    sizes_iid = [len(i) for i in idxs_iid]
+    print("IID sizes:", sizes_iid)
+
+    # alpha = 0.3 -> noticeable non-IID
+    idxs_noniid = federated_split(labels, n_clients=n_clients, alpha=0.3, min_per_client=500, seed=0)
+    sizes_noniid = [len(i) for i in idxs_noniid]
+    print("non-IID sizes:", sizes_noniid)
+
+    # If you have a PyTorch dataset `dataset`, you can do:
+    # from torch.utils.data import Subset, DataLoader
+    # loaders = [
+    #     DataLoader(Subset(dataset, idxs), batch_size=64, shuffle=True, num_workers=2)
+    #     for idxs in idxs_noniid
+    # ]
 
 
 def get_datasets(data_name, dataroot, normalize=True, val_size=10000):

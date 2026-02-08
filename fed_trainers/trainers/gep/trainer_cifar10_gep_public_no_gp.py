@@ -1,11 +1,13 @@
 import argparse
+import os
 import time
 from pathlib import Path
 
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
-from fed_trainers.trainers.gep import trainer_gep_public_no_gp
+from fed_trainers.trainers import gp_utils
+
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
     compute_sample_probability, create_wandb_report
 
@@ -33,14 +35,19 @@ def train(args):
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    trainer_gep_public_no_gp.train(args, get_dataloaders(args))
+    if args.use_gp:
+        from fed_trainers.trainers.gep import trainer_gep_public_with_gp as trainer
+    else:
+        from fed_trainers.trainers.gep import trainer_gep_public_no_gp as trainer
+    trainer.train(args, get_dataloaders(args))
 
 def main():
-    parser = argparse.ArgumentParser(description="GEP Public CIFAR10/100 Federated Learning")
-    data_name = 'cifar100'
+    parser = argparse.ArgumentParser(description="CIFAR10/100 GEP PUBLIC Federated Learning")
+    data_name = os.environ.get('DATA_NAME', 'cifar10')
+    use_gp = os.environ.get('USE_GP', 'False')
     num_classes = 10 if data_name == 'cifar10' else 100
-    num_users = 500
-    num_public_clients = 10
+    num_users = 20
+    num_public_clients = 2
     working_dir = Path(__file__).resolve().parents[2]
     run_tag = f'gep_public_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
     parser.add_argument('--run_tag', default=run_tag, type=str, help='run tag')

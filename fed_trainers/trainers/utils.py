@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Collection
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import torch
 import wandb
 # from sklearn import metrics
@@ -321,23 +321,23 @@ def calc_metrics(results):
     return avg_loss, avg_acc
 
 
-def get_distance_matrix(args) -> torch.Tensor:
-    if hasattr(args, 'distance_matrix_file'):
-        filepath = Path(args.distance_matrix_file)
-        assert filepath.exists(), f'{filepath} does not exist'
-        assert filepath.is_file(), f'{filepath} is not a file'
-
-        # Load the CSV file into a Pandas DataFrame
-        df = pd.read_csv(filepath, index_col=0)
-
-        # Convert the DataFrame to a torch Tensor
-        distance_matrix: torch.Tensor = torch.tensor(df.values, dtype=torch.float32)
-    else:
-        distance_matrix = torch.ones(args.num_classes, args.num_classes, dtype=torch.float32)
-
-    distance_matrix = torch.pow(distance_matrix, 2)
-
-    return distance_matrix
+# def get_distance_matrix(args) -> torch.Tensor:
+#     if hasattr(args, 'distance_matrix_file'):
+#         filepath = Path(args.distance_matrix_file)
+#         assert filepath.exists(), f'{filepath} does not exist'
+#         assert filepath.is_file(), f'{filepath} is not a file'
+#
+#         # Load the CSV file into a Pandas DataFrame
+#         df = pd.read_csv(filepath, index_col=0)
+#
+#         # Convert the DataFrame to a torch Tensor
+#         distance_matrix: torch.Tensor = torch.tensor(df.values, dtype=torch.float32)
+#     else:
+#         distance_matrix = torch.ones(args.num_classes, args.num_classes, dtype=torch.float32)
+#
+#     distance_matrix = torch.pow(distance_matrix, 2)
+#
+#     return distance_matrix
 
 
 def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict):
@@ -546,43 +546,43 @@ def get_clients(args):
     return public_clients, private_clients, dummy_clients
 
 
-def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_similarity=0.0):
-    csv_path = Path(args.csv_path)
-    csv_path.mkdir(exist_ok=True)
-    csv_file_path = csv_path / args.csv_name
-
-    new_row_dict = {
-        'timestamp': pd.Timestamp.now(),
-        'data_name': args.data_name,
-        'num-epochs': args.n_epochs,
-        'optimizer': args.optimizer,
-        'lr': args.lr,
-        'global_lr': args.global_lr,
-        'num-client-agg': args.num_client_agg,
-        'clip': args.clip,
-        'epsilon': args.eps,
-        'noise-multiplier': args.noise_multiplier,
-        'seed': args.seed,
-        'history_size': args.gradients_history_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
-        'basis_size': args.basis_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
-        'dp_method': dp_method,
-        'epoch_of_best_val': epoch_of_best_val,
-        # 'model_name': args.model_name,
-        'best_val_acc': best_val_acc,
-        'test_avg_acc': test_avg_acc,
-        'reconstruction_similarity': reconstruction_similarity
-    }
-
-    new_row = pd.Series(new_row_dict)
-    new_row_df = pd.DataFrame([new_row])
-    if csv_file_path.exists():
-        df = pd.read_csv(csv_file_path)
-        df = df[new_row_df.columns]
-        df = pd.concat([df, new_row_df], ignore_index=True)
-    else:
-        df = new_row_df
-
-    df.to_csv(csv_file_path, index=False)
+# def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_similarity=0.0):
+#     csv_path = Path(args.csv_path)
+#     csv_path.mkdir(exist_ok=True)
+#     csv_file_path = csv_path / args.csv_name
+#
+#     new_row_dict = {
+#         'timestamp': pd.Timestamp.now(),
+#         'data_name': args.data_name,
+#         'num-epochs': args.n_epochs,
+#         'optimizer': args.optimizer,
+#         'lr': args.lr,
+#         'global_lr': args.global_lr,
+#         'num-client-agg': args.num_client_agg,
+#         'clip': args.clip,
+#         'epsilon': args.eps,
+#         'noise-multiplier': args.noise_multiplier,
+#         'seed': args.seed,
+#         'history_size': args.gradients_history_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
+#         'basis_size': args.basis_size if dp_method in ['GEP_PUBLIC', 'GEP_PRIVATE'] else 1,
+#         'dp_method': dp_method,
+#         'epoch_of_best_val': epoch_of_best_val,
+#         # 'model_name': args.model_name,
+#         'best_val_acc': best_val_acc,
+#         'test_avg_acc': test_avg_acc,
+#         'reconstruction_similarity': reconstruction_similarity
+#     }
+#
+#     new_row = pd.Series(new_row_dict)
+#     new_row_df = pd.DataFrame([new_row])
+#     if csv_file_path.exists():
+#         df = pd.read_csv(csv_file_path)
+#         df = df[new_row_df.columns]
+#         df = pd.concat([df, new_row_df], ignore_index=True)
+#     else:
+#         df = new_row_df
+#
+#     df.to_csv(csv_file_path, index=False)
 
 
 def log2wandb(train_acc_of_best_model,
@@ -669,8 +669,9 @@ def logtest2wandb(test_acc):
     wandb.log({"test_acc": test_acc})
 
 
-def wandb_plot_confusion_matrix(ground_truth, predictions, class_names):
-    wandb.log({"conf_mat": wandb.plot.confusion_matrix(probs=None,
+def wandb_plot_confusion_matrix(ground_truth, predictions, class_names, label=None):
+    log_key = label if label is not None else 'confusion_matrix'
+    wandb.log({log_key: wandb.plot.confusion_matrix(probs=None,
                                                        y_true=ground_truth, preds=predictions,
                                                        class_names=class_names)})
 

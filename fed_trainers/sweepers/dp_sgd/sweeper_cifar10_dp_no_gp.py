@@ -1,20 +1,24 @@
 import argparse
 import logging
+import os
 from pathlib import Path
 import torch
+
+from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.dp_sgd import trainer_cifar10_dp_no_gp
 from fed_trainers.sweepers.sweep_utils import sweep
 from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
-    data_name = 'cifar10'
+    data_name = os.environ.get('DATA_NAME', 'cifar10')
+    use_gp = os.environ.get('USE_GP', False)
     dp_method = 'sgd_dp'
     parser = argparse.ArgumentParser(
         description=f"Sweep {dp_method.upper()}  {data_name.upper()} Federated Learning")
     num_classes = 10 if data_name == 'cifar10' else 100
-    num_users = 500
-    num_public_clients = 10
+    num_users = 20
+    num_public_clients = 0
     working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
@@ -23,16 +27,19 @@ def main():
     parser.add_argument("--block-size", type=int, default=3)
     parser.add_argument("--num-classes", type=int, default=num_classes, help="Number of unique labels")
     parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
+    parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
+    parser.add_argument('--embed-dim', type=int, default=64)
+    parser.add_argument('--use-gp', type=str2bool, default=use_gp)
 
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=30, help="number of epochs to train")
+    parser.add_argument("--n_epochs", type=int, default=10, help="number of epochs to train")
     parser.add_argument("--optimizer", type=str, default='sgd',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--num_client_agg", type=int, default=5, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
@@ -42,7 +49,7 @@ def main():
     parser.add_argument("--clip", type=float, default=1, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument('--eps', default=8, type=float, help='privacy parameter epsilon')
+    parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
@@ -63,8 +70,8 @@ def main():
     #############################
 
     parser.add_argument(
-        "--data-name", type=str, default=data_name,
-        choices=['cifar10', 'cifar100', 'putEMG'], help="dir path for MNIST dataset"
+        "--data_name", type=str, default=data_name,
+        choices=['cifar10', 'cifar100', 'putEMG'], help="dataset name"
     )
     parser.add_argument("--data_path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
     parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
@@ -92,6 +99,8 @@ def main():
     parser.add_argument("--sweep_metric_name", type=str, default="val_avg_acc", help="metric to maximize/minimize in sweep")
     parser.add_argument("--sweep_metric_goal", type=str, default="maximize", choices=['maximize', 'minimize'], help="maximize or minimize in sweep")
 
+    if use_gp:
+        parser = gp_utils.parse_args(parser)
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
@@ -143,7 +152,7 @@ def main():
             # "calibration_split": {"values": [0.0]},
             # "inner_steps": {"values": [1, 3]},
             "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 5},
             # "optimizer": {"values": ["sgd"]},
             # "num_client_agg": {"values": [args.num_client_agg]},
             # "model_name": {"values": ["CNNTarget", "ResNet"]},
