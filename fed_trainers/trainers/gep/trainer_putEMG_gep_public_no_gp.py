@@ -1,12 +1,12 @@
 import argparse
-import logging
+import os
 from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.emg_utils import get_dataloaders, get_num_users
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, log_data_statistics, compute_sample_probability, \
     compute_steps, get_sigma
-from fed_trainers.trainers.gep import trainer_gep_public_no_gp
+
 
 def train(args):
     set_seed(args.seed)
@@ -24,11 +24,16 @@ def train(args):
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    trainer_gep_public_no_gp.train(args, dataloaders)
+    if args.use_gp:
+        from fed_trainers.trainers.gep import trainer_gep_public_with_gp as trainer
+    else:
+        from fed_trainers.trainers.gep import trainer_gep_public_no_gp as trainer
+    trainer.train(args, dataloaders)
 
 def main():
 
     data_name = 'putEMG'
+    use_gp = os.environ.get('USE_GP', 'False')
     dp_method = 'gep_public'
     parser = argparse.ArgumentParser(description="GEP Public putEMG Federated Learning")
     num_users = get_num_users()
@@ -45,7 +50,9 @@ def main():
     parser.add_argument("--num-classes", type=int, default=num_classes, help="Number of unique labels")
     parser.add_argument("--num-features", type=int, default=384, help="Number of extracted features (model input size)")
     parser.add_argument("--num-features-per-channel", type=int, default=16, help="Number of extracted features per channel")
-
+    parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
+    parser.add_argument('--embed-dim', type=int, default=64)
+    parser.add_argument('--use-gp', type=str2bool, default=use_gp)
 
     ##################################
     #       Optimization args        #
@@ -105,7 +112,7 @@ def main():
     )
     parser.add_argument("--data_path", type=str,
                         # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
-                        default='./data/EMG/putEMG/Data-HDF5-Features-Short-Time',
+                        default=(working_dir / 'data/EMG/putEMG/Data-HDF5-Features-Short-Time').as_posix(),
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")

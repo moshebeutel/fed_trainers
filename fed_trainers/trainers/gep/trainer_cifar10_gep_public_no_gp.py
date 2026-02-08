@@ -59,7 +59,7 @@ def main():
     parser.add_argument("--model_name", type=str, choices=['CNNTarget', 'ResNet'], default='ResNet')
     parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
     parser.add_argument('--embed-dim', type=int, default=64)
-    parser.add_argument('--use-gp', type=str2bool, default=False)
+    parser.add_argument('--use-gp', type=str2bool, default=use_gp)
 
     ##################################
     #       Optimization args        #

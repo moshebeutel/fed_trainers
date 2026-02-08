@@ -112,7 +112,7 @@ def main():
         "--data-name", type=str, default=data_name,
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
-    parser.add_argument("--data_path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
+    parser.add_argument("--data_path", type=str, default=(working_dir / f"data/{data_name.upper()}/").as_posix(), help="dir path for dataset")
     parser.add_argument("--num_classes", type=int, default=num_classes, help="total number of clients")
 
     #############################
