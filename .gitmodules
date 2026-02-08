@@ -1,8 +1,8 @@
 [submodule "pyeeg"]
 	path = pyeeg
 	url = https://github.com/forrestbao/pyeeg.git
-[submodule "biolab_utilitiess"]
-	path = biolab_utilitiess
+[submodule "biolab_utilities"]
+	path = biolab_utilities
 	url = https://github.com/biolab-put/biolab_utilities.git
 [submodule "pFedGP"]
 	path = pFedGP
