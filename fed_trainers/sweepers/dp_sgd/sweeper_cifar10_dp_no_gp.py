@@ -11,14 +11,15 @@ from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
+
     data_name = os.environ.get('DATA_NAME', 'cifar10')
     use_gp = os.environ.get('USE_GP', False)
     dp_method = 'sgd_dp'
     parser = argparse.ArgumentParser(
-        description=f"Sweep {dp_method.upper()}  {data_name.upper()} Federated Learning")
+        description=f"Sweep {'GP_' if use_gp else ''}{data_name.upper()} {dp_method.upper()} Federated Learning")
     num_classes = 10 if data_name == 'cifar10' else 100
-    num_users = 20
-    num_public_clients = 0
+    num_users = 88
+    num_public_clients = 6
     working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
@@ -39,7 +40,7 @@ def main():
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=5, help="number of clients per step")
+    parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
@@ -58,7 +59,8 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp_name", type=str, default=f'Sweep_{dp_method.upper()}_{data_name.upper()}', help="suffix for exp name")
+    parser.add_argument("--exp_name", type=str,
+                        default=f'Sweep_{"GP_" if use_gp else ""}{data_name.upper()} {dp_method.upper()}', help="suffix for exp name")
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -140,7 +142,6 @@ def main():
         sweep_name = f"GP_{sweep_name}"
     sweep_configuration = {
         "name": sweep_name,
-        # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
@@ -148,18 +149,11 @@ def main():
             "lr_dec_rate": {"min": 0.9, "max": 1.0},
             "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
-            # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
-            # "batch_size": {"values": [args.batch_size]},
-            # "num_public_clients": {"values": [args.num_public_clients]},
-            "clip": {"min": 1e-4, "max": 1.0},
-            # "calibration_split": {"values": [0.0]},
-            # "inner_steps": {"values": [1, 3]},
+            "batch_size": {"values": [args.batch_size, args.batch_size * 2]},
+            "clip": {"min": 1e-4, "max": 1e-1},
             "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 5},
-            # "optimizer": {"values": ["sgd"]},
-            # "num_client_agg": {"values": [args.num_client_agg]},
-            # "model_name": {"values": ["CNNTarget", "ResNet"]},
-            # "noise_multiplier": {"values": [args.noise_multiplier]}
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
+            "num_client_agg": {"values": [args.num_client_agg]},
             "eps": {"values": [args.eps]}
         },
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}

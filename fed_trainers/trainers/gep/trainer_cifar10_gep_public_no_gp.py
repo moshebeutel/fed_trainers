@@ -2,7 +2,6 @@ import argparse
 import os
 import time
 from pathlib import Path
-
 import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
@@ -39,17 +38,21 @@ def train(args):
         from fed_trainers.trainers.gep import trainer_gep_public_with_gp as trainer
     else:
         from fed_trainers.trainers.gep import trainer_gep_public_no_gp as trainer
+
     trainer.train(args, get_dataloaders(args))
 
 def main():
-    parser = argparse.ArgumentParser(description="CIFAR10/100 GEP PUBLIC Federated Learning")
-    data_name = os.environ.get('DATA_NAME', 'cifar10')
+
+    data_name = 'putEMG'
     use_gp = os.environ.get('USE_GP', 'False')
+    dp_method = "gep_public"
+    parser = argparse.ArgumentParser(
+        description=f"{'GP_' if use_gp else ''}{data_name.upper()} {dp_method.upper()} Federated Learning")
+    num_users = 88
     num_classes = 10 if data_name == 'cifar10' else 100
-    num_users = 20
-    num_public_clients = 2
+    num_public_clients = 6
     working_dir = Path(__file__).resolve().parents[2]
-    run_tag = f'gep_public_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+    run_tag = f'{data_name}_{dp_method}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
     parser.add_argument('--run_tag', default=run_tag, type=str, help='run tag')
     ##################################
     #       Network args        #
@@ -69,7 +72,7 @@ def main():
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=50, help="number of clients per step")
+    parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.99, help="learning rate decrease rate")
@@ -93,14 +96,14 @@ def main():
     ##################################
     parser.add_argument("--gradients_history_size", type=int,
                         default=500, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis_size", type=int, default=50, help="number of basis vectors")
+    parser.add_argument("--basis_size", type=int, default=10, help="number of basis vectors")
 
     #############################
     #       General args        #
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp_name", type=str, default=f'GEP_PUBLIC_{data_name.upper()}', help="suffix for exp name")
+    parser.add_argument("--exp_name", type=str, default=f'{dp_method.upper()}_{data_name.upper()}', help="suffix for exp name")
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -109,12 +112,12 @@ def main():
     parser.add_argument("--eval_every", type=int, default=1, help="eval every X selected epochs")
     parser.add_argument("--eval_after", type=int, default=0, help="eval only after X selected epochs")
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
-    parser.add_argument('--log_level', default='INFO', type=str, choices=['DEBUG', 'INFO'],
+    parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
     parser.add_argument("--log_dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
-    parser.add_argument("--log_name", type=str, default="gep_public", help="dir path for logger file")
-    parser.add_argument("--csv_path", type=str, default=(working_dir / "csv").as_posix(), help="dir path for csv file")
-    parser.add_argument("--csv_name", type=str, default=f"{data_name}_gep_public.csv", help="dir path for csv file")
+    parser.add_argument("--log_name", type=str, default=f'{dp_method}_{data_name}', help="dir path for logger file")
+    parser.add_argument("--csv_path", type=str, default=(working_dir / 'csv').as_posix(), help="dir path for csv file")
+    parser.add_argument("--csv_name", type=str, default=f"{data_name}_{dp_method}.csv", help="dir path for csv file")
 
     #############################
     #       Dataset Args        #
@@ -124,9 +127,8 @@ def main():
         "--data-name", type=str, default=data_name,
         choices=['cifar10', 'cifar100', 'putEMG', 'mnist'], help="dataset"
     )
-    parser.add_argument("--data-path", type=str, default=(working_dir / "data").as_posix(), help="dir path for dataset")
-    parser.add_argument("--num-classes", type=int, default=10, help="total number of clients")
-
+    parser.add_argument("--data_path", type=str, default=(working_dir / f"data/{data_name.upper()}/").as_posix(), help="dir path for dataset")
+    parser.add_argument("--num_classes", type=int, default=num_classes, help="total number of clients")
 
     #############################
     #       Clients Args        #
@@ -135,7 +137,10 @@ def main():
     parser.add_argument("--num_clients", type=int, default=num_users, help="total number of clients")
     parser.add_argument("--num_private_clients", type=int, default=num_users-num_public_clients, help="number of private clients")
     parser.add_argument("--num_public_clients", type=int, default=num_public_clients, help="number of public clients")
-    parser.add_argument("--classes_per_client", type=int, default=num_classes // 5, help="number of data classes each client has")
+    parser.add_argument("--classes_per_client", type=int, default=num_classes,
+                        help="number of classes each client knows")
+
+
 
     if use_gp:
         parser = gp_utils.parse_args(parser)
@@ -145,6 +150,8 @@ def main():
 
     logger = set_logger(args)
     logger.info(f"Args: {args}")
+    logger.debug('Debug Logger Set')
+
     set_seed(args.seed)
 
     q = compute_sample_probability(args)
@@ -158,7 +165,9 @@ def main():
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    exp_name = f'GEP_PUBLIC_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
+    exp_name = f'{dp_method.upper()}_{data_name.upper()}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}_seed_{args.seed}'
+    if use_gp:
+        exp_name = f'GP_{exp_name}'
 
     # Weights & Biases
     if args.wandb:

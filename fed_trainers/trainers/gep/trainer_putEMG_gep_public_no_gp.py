@@ -1,11 +1,11 @@
 import argparse
-import logging
-import time
 import os
+import time
 from pathlib import Path
 import torch
 import wandb
 from fed_trainers.datasets.emg_utils import get_dataloaders, get_num_users
+from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, log_data_statistics, compute_sample_probability, \
     compute_steps, get_sigma
 
@@ -30,6 +30,7 @@ def train(args):
         from fed_trainers.trainers.gep import trainer_gep_public_with_gp as trainer
     else:
         from fed_trainers.trainers.gep import trainer_gep_public_no_gp as trainer
+
     trainer.train(args, dataloaders)
 
 def main():
@@ -37,12 +38,13 @@ def main():
     data_name = 'putEMG'
     use_gp = os.environ.get('USE_GP', 'False')
     dp_method = 'gep_public'
-    parser = argparse.ArgumentParser(description=f"{dp_method.upper()} {data_name} Federated Learning")
+    parser = argparse.ArgumentParser(
+        description=f"{'GP_' if use_gp else ''}{data_name.upper()} {dp_method.upper()} Federated Learning")
     num_users = get_num_users() * 2
     num_classes = 4
-    num_public_clients = 5
+    num_public_clients = 6
     working_dir = Path(__file__).resolve().parents[2]
-    run_tag = f'{dp_method}_{data_name}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+    run_tag = f'{data_name}_{dp_method}_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
     parser.add_argument('--run_tag', default=run_tag, type=str, help='run tag')
     ##################################
     #       Network args        #
@@ -64,17 +66,17 @@ def main():
     parser.add_argument("--n_epochs", type=int, default=100)
     parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
     parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.95, help="learning rate decrease rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
+    parser.add_argument("--clip", type=float, default=1.0, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument('--eps', default=-1, type=float, help='privacy parameter epsilon')
+    parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
@@ -82,8 +84,8 @@ def main():
     #       GEP args                 #
     ##################################
     parser.add_argument("--gradients_history_size", type=int,
-                        default=100, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis_size", type=int, default=40, help="number of basis vectors")
+                        default=500, help="amount of past gradients participating in embedding subspace computation")
+    parser.add_argument("--basis_size", type=int, default=10, help="number of basis vectors")
 
     #############################
     #       General args        #
@@ -94,15 +96,15 @@ def main():
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
-    parser.add_argument('--wandb', type=str2bool, default=True)
+    parser.add_argument('--wandb', type=str2bool, default=False)
     parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
     parser.add_argument("--eval_every", type=int, default=1, help="eval every X selected epochs")
     parser.add_argument("--eval_after", type=int, default=0, help="eval only after X selected epochs")
     parser.add_argument("--log_every", type=int, default=1, help="log every X selected epochs")
     parser.add_argument('--log_level', default='DEBUG', type=str, choices=['DEBUG', 'INFO'],
                         help='log level: DEBUG, INFO Default: DEBUG.')
-    parser.add_argument("--log-dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default=f"{data_name}_{dp_method}", help="dir path for logger file")
+    parser.add_argument("--log_dir", type=str, default=(working_dir  / "log").as_posix(), help="dir path for logger file")
+    parser.add_argument("--log_name", type=str, default=f'{dp_method}_{data_name}', help="dir path for logger file")
     parser.add_argument("--csv_path", type=str, default=(working_dir / 'csv').as_posix(), help="dir path for csv file")
     parser.add_argument("--csv_name", type=str, default=f"{data_name}_{dp_method}.csv", help="dir path for csv file")
     parser.add_argument('--log-data-statistics', type=str2bool, default=False)
@@ -122,6 +124,7 @@ def main():
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
                         # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
                         help="dir path for dataset")
+    parser.add_argument("--num_classes", type=int, default=num_classes, help="total number of clients")
 
     #############################
     #       Clients Args        #
@@ -158,7 +161,9 @@ def main():
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    exp_name = f'{dp_method.upper()}_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'
+    exp_name = f'{dp_method.upper()}_{data_name.upper()}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}_seed_{args.seed}'
+    if use_gp:
+        exp_name = f'GP_{exp_name}'
 
     # Weights & Biases
     if args.wandb:
@@ -169,5 +174,6 @@ def main():
 
     if args.wandb:
         run.finish()
+
 if __name__ == '__main__':
     main()

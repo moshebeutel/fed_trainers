@@ -1,23 +1,24 @@
 import argparse
-import logging
 import os
 from pathlib import Path
 import torch
-from fed_trainers.trainers import gp_utils
-from fed_trainers.trainers.gep import trainer_putEMG_gep_public_no_gp
 from fed_trainers.datasets.emg_utils import get_num_users
 from fed_trainers.sweepers.sweep_utils import sweep
+from fed_trainers.trainers import gp_utils
+from fed_trainers.trainers.gep import trainer_putEMG_gep_public_no_gp
 from fed_trainers.trainers.utils import set_logger, str2bool
 
 
 def main():
+
     data_name = 'putEMG'
     use_gp = os.environ.get('USE_GP', False)
     dp_method = 'gep_public'
-    parser = argparse.ArgumentParser(description=f"Sweep {dp_method.upper()} {data_name} Federated Learning")
-    num_users = get_num_users()
+    parser = argparse.ArgumentParser(
+        description=f"Sweep {'GP_' if use_gp else ''}{data_name.upper()} {dp_method.upper()} Federated Learning")
     num_classes = 4
-    num_public_clients = 5
+    num_users = get_num_users() * 2
+    num_public_clients = 6
     working_dir = Path(__file__).resolve().parents[2]
     ##################################
     #       Network args        #
@@ -34,20 +35,22 @@ def main():
     ##################################
     #       Optimization args        #
     ##################################
-    parser.add_argument("--n_epochs", type=int, default=50)
-    parser.add_argument("--optimizer", type=str, default='sgd',
+    parser.add_argument("--n_epochs", type=int, default=100)
+    parser.add_argument("--optimizer", type=str, default='adam',
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=10, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
+    parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
+    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.75, help="learning rate decrease rate")
+    parser.add_argument("--min_global_lr", type=float, default=0.01,
+                        help="min value for decreasing server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
+    parser.add_argument("--clip", type=float, default=1, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
-    parser.add_argument('--eps', default=8, type=float, help='privacy parameter epsilon')
+    parser.add_argument('--eps', default=8., type=float, help='privacy parameter epsilon')
     parser.add_argument('--delta', default=1e-5, type=float, help='desired delta')
     parser.add_argument("--calibration_split", type=float, default=0.0,
                         help="split ratio of the test set for calibration before testing")
@@ -56,7 +59,8 @@ def main():
     #############################
     parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
     parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp_name", type=str, default=f'{dp_method.upper()}_{data_name.upper()}', help="suffix for exp name")
+    parser.add_argument("--exp_name", type=str,
+                        default=f'Sweep_{"GP_" if use_gp else ""}{data_name.upper()} {dp_method.upper()}', help="suffix for exp name")
     parser.add_argument("--save_path", type=str, default=(working_dir / 'saved_models').as_posix(),
                         help="dir path for saved models")
     parser.add_argument("--seed", type=int, default=42, help="seed value")
@@ -76,9 +80,9 @@ def main():
     ##################################
     #       GEP args                 #
     ##################################
-    parser.add_argument("--gradients-history-size", type=int,
-                        default=100, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis-size", type=int, default=40, help="number of basis vectors")
+    parser.add_argument("--gradients_history_size", type=int,
+                        default=500, help="amount of past gradients participating in embedding subspace computation")
+    parser.add_argument("--basis_size", type=int, default=10, help="number of basis vectors")
 
     #############################
     #       Dataset Args        #
@@ -143,9 +147,9 @@ def main():
     sweep_name = f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}"
     if use_gp:
         sweep_name = f"GP_{sweep_name}"
+
     sweep_configuration = {
         "name": sweep_name,
-        # "name": f"SGD_DP_CIFAR10_lr_{args.lr}_seeds{(args.seed, args.seed + 1, args.seed + 2)}",
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
@@ -153,22 +157,22 @@ def main():
             "lr_dec_rate": {"min": 0.9, "max": 1.0},
             "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
-            # "seed": {"values": [args.seed, args.seed + 1, args.seed + 2]},
+            "batch_size": {"values": [args.batch_size, args.batch_size *2]},
+            "clip": {"min": 1e-4, "max": 5.0},
+            "wd": {"min": 1e-4, "max": 1e-3},
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
+            "num_client_agg": {"values": [args.num_client_agg]},
+            "eps": {"values": [args.eps]},
             "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
             "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
-            "batch_size": {"values": [args.batch_size, args.batch_size*2]},
-            "clip": {"min": 1e-4, "max": 1.0},
-            # "calibration_split": {"values": [0.0]},
-            # "inner_steps": {"values": [1, 3]},
-            "wd": {"min": 1e-4, "max": 1e-3},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 20},
-            # "optimizer": {"values": ["sgd"]},
-            # "num_client_agg": {"values": [args.num_client_agg]},
-            # "noise_multiplier": {"values": [args.noise_multiplier]}
-            "eps": {"values": [args.eps]}
         },
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
 
     sweep(sweep_config=sweep_configuration, args=args,
           train_fn=trainer_putEMG_gep_public_no_gp.train)
+
+
+if __name__ == '__main__':
+    main()
+

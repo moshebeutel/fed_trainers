@@ -6,26 +6,20 @@ import torch
 from tqdm import trange
 
 from fed_trainers.trainers.model import get_model
-<<<<<<< HEAD
-from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, \
-    log2wandb, \
-    load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch, logtest2wandb, \
-    wandb_plot_confusion_matrix
-=======
 from fed_trainers.trainers.utils import (get_clients, get_device, local_train, flatten_tensor, eval_model,
     # update_frame, \
                                          log2wandb, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
->>>>>>> ea474ea (GP experiments working)
-
+from fed_trainers.trainers.utils import set_logger
 
 def train(args, dataloaders):
-    logger = logging.getLogger(args.log_name)
+    logger = set_logger(args)
 
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1, train_acc_of_best_model = 0.0, 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
     public_clients, private_clients, dummy_clients = get_clients(args)
+    all_clients = public_clients + private_clients
     num_public_clients = len(public_clients)
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
@@ -66,16 +60,16 @@ def train(args, dataloaders):
             prev_params[n] = p.detach()
 
         # Sample several clients
-        client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
-        # logger.debug(f'Client ids in step {step}: {client_ids_step}')
+        # client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
+        client_ids_step = np.random.choice(all_clients, size=args.num_client_agg, replace=False)
 
         train_avg_loss, train_avg_acc = 0.0, 0.0
 
-        logger.debug(f"Private clients sampled: {client_ids_step}")
-
+        logger.debug(f"Clients sampled: {client_ids_step}")
+        private_clients_mask = torch.ones(size=(len(client_ids_step),), device=device)
         # Iterate over each client
         for j, c_id in enumerate(client_ids_step):
-
+            private_clients_mask[j] = 1 if c_id in private_clients else 0
             train_loader = train_loaders[c_id]
 
             pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3),
@@ -120,7 +114,8 @@ def train(args, dataloaders):
         # noise grads
         noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
                              size=grads_flattened_clipped.shape).to(device)
-        noised_grads = grads_flattened_clipped + noise
+        # Add noise to grads. Note: public clients add zero noise
+        noised_grads = grads_flattened_clipped + noise * private_clients_mask.unsqueeze(1)
 
         # aggregate noised grads
         aggregated_grads = noised_grads.mean(dim=0)
@@ -129,12 +124,15 @@ def train(args, dataloaders):
         global_lr = args.global_lr
 
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
+
         # Evaluate model
         if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0) or (step + 1) == num_steps:
             val_results = eval_model(args, net, private_clients, val_loaders, plot_confusion_matrix=True)
             y_true_all, y_pred_all, _, _, val_avg_acc, val_avg_loss, val_avg_acc_score, val_avg_f1 = val_results
             if args.wandb:
                 wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
+
+
             # val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
             # val_avg_acc, val_avg_loss, val_avg_acc_score, val_avg_f1 = val_results
 
@@ -205,6 +203,7 @@ def train(args, dataloaders):
     #         })
     #     local_net, clib_avg_loss = local_train(args, net, calib_loader,
     #                                            pbar=step_iter, pbar_dict=pbar_dict)
+
 
     # Test best model
     test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=True)

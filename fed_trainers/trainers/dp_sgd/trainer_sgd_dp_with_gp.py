@@ -20,6 +20,7 @@ def train(args, dataloaders):
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1, train_acc_of_best_model = 0.0, 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
     public_clients, private_clients, dummy_clients = get_clients(args)
+    all_clients = public_clients + private_clients
     num_public_clients = len(public_clients)
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
@@ -30,7 +31,7 @@ def train(args, dataloaders):
 
     train_loaders, val_loaders, test_loaders = dataloaders
 
-    num_clients = len(public_clients) + len(private_clients)
+    num_clients = len(all_clients)
     classes_per_client = args.classes_per_client
     GPs = torch.nn.ModuleList([])
     for client_id in range(num_clients):
@@ -62,15 +63,16 @@ def train(args, dataloaders):
             prev_params[n] = p.detach()
 
         # Sample several clients
-        client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
+        # client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
+        client_ids_step = np.random.choice(all_clients, size=args.num_client_agg, replace=False)
 
         train_avg_loss, train_avg_acc = 0.0, 0.0
 
-        logger.debug(f"Private clients sampled: {client_ids_step}")
-
+        logger.debug(f"Clients sampled: {client_ids_step}")
+        private_clients_mask = torch.ones(size=(len(client_ids_step),), device=device)
         # Iterate over each client
         for j, c_id in enumerate(client_ids_step):
-
+            private_clients_mask[j] = 1 if c_id in private_clients else 0
             train_loader = train_loaders[c_id]
 
             pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3),
@@ -107,6 +109,7 @@ def train(args, dataloaders):
         grads_flattened = flatten_tensor(grads_list)
 
         # clip grads
+        # grads_max_amp, _ = torch.max(torch.abs(grads_flattened), dim=-1)
         grads_norms = torch.norm(grads_flattened, p=2, dim=-1)
         clip_factor = torch.max(torch.ones_like(grads_norms), grads_norms / args.clip)
         grads_flattened_clipped = torch.div(grads_flattened, clip_factor.reshape(-1, 1))
@@ -117,7 +120,8 @@ def train(args, dataloaders):
         # noise grads
         noise = torch.normal(mean=0.0, std=args.noise_multiplier * args.clip,
                              size=grads_flattened_clipped.shape).to(device)
-        noised_grads = grads_flattened_clipped + noise
+        # Add noise to grads. Note: public clients add zero noise
+        noised_grads = grads_flattened_clipped + noise * private_clients_mask.unsqueeze(1)
 
         # aggregate noised grads
         aggregated_grads = noised_grads.mean(dim=0)
@@ -126,6 +130,7 @@ def train(args, dataloaders):
         global_lr = args.global_lr
 
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
+
         # Evaluate model
         if ((step + 1) > args.eval_after and (step + 1) % args.eval_every == 0 and (step + 1) % steps_in_epoch == 0) or (step + 1) == num_steps:
             logger.debug(f'Evaluating model step {step + 1}')
