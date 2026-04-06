@@ -15,9 +15,9 @@ import numpy as np
 # import pandas as pd
 import torch
 import wandb
-from sklearn import metrics
 from torch.utils.data import DataLoader, random_split
 
+from fed_trainers.trainers.factory import get_optimizer
 from fed_trainers.trainers.rdp_accountant import compute_rdp, get_privacy_spent
 
 
@@ -41,7 +41,7 @@ def set_seed(seed, cudnn_enabled=True):
     torch.backends.cudnn.deterministic = True
 
 
-def set_logger(args):
+def get_logger(args):
     logger = logging.getLogger(args.log_name)
     logger.setLevel(args.log_level)
     if logger.handlers:
@@ -392,11 +392,6 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
     return local_net, train_avg_loss, train_avg_acc
 
 
-def get_optimizer(args, network):
-    return torch.optim.SGD(network.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9) \
-        if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
-
-
 def eval_model(args, global_model, client_ids, loaders, plot_confusion_matrix=False):
     device = get_device()
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
@@ -521,31 +516,6 @@ def flatten_tensor(tensor_list) -> torch.Tensor:
     return flatten_param
 
 
-def get_clients(args):
-    if args.data_name == 'keypressemg':
-        from fed_trainers.datasets import keypressemg_utils
-        return keypressemg_utils.get_clients(args)
-
-    num_clients = args.num_clients
-    num_private_clients = args.num_private_clients
-    num_public_clients = args.num_public_clients
-
-    assert num_clients >= (num_private_clients + num_public_clients), \
-        f'num clients should be more than sum of all participating clients. Got {num_clients} clients'
-
-    num_dummy_clients = num_clients - (num_private_clients + num_public_clients)
-
-    i = 0
-    public_clients = list(range(i, i + num_public_clients))
-    i += num_public_clients
-    private_clients = list(range(i, i + num_private_clients))
-    i += num_private_clients
-    dummy_clients = list(range(i, i + num_dummy_clients))
-    i += num_dummy_clients
-
-    return public_clients, private_clients, dummy_clients
-
-
 # def update_frame(args, dp_method, epoch_of_best_val, best_val_acc, test_avg_acc, reconstruction_similarity=0.0):
 #     csv_path = Path(args.csv_path)
 #     csv_path.mkdir(exist_ok=True)
@@ -660,7 +630,7 @@ def create_wandb_report(args, desc="Run Report"):
 
     report.blocks = report.blocks[:1] + [wr.H1("Run Metrics"), pg] + report.blocks[1:]
     report.save()
-    set_logger(args).info(f"Report saved to {report.url}")
+    get_logger(args).info(f"Report saved to {report.url}")
     return report
     # wr.Report.from_url(report.url)  # Load
 

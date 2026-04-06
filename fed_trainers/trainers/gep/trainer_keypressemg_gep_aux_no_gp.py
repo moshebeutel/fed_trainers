@@ -4,10 +4,10 @@ import logging
 from pathlib import Path
 import torch
 import wandb
-from fed_trainers.trainers.utils import set_logger, set_seed, str2bool
+from fed_trainers.trainers.utils import get_logger, set_seed, str2bool
 import trainer_gep_aux_no_gp
 from fed_trainers.datasets import emg_utils
-from fed_trainers.datasets import keypressemg_utils
+from fed_trainers.datasets.keypressemg import keypressemg_utils
 
 
 def train(args):
@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
-    logger = set_logger(args)
+    logger = get_logger(args)
     logger.info(f"Args: {args}")
 
     exp_name = f'GEP_AUX_{args.data_name}_lr_{args.lr}_clip_{args.clip}_noise_{args.noise_multiplier}'

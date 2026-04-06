@@ -3,9 +3,9 @@ import logging
 from pathlib import Path
 import torch
 from fed_trainers.trainers.dp_sgd import trainer_keypressemg_sgd_dp_no_gp
-from fed_trainers.datasets.keypressemg_utils import get_num_users
+from fed_trainers.datasets.keypressemg.keypressemg_utils import get_num_users
 from sweep_utils import sweep
-from fed_trainers.trainers.utils import set_logger, str2bool
+from fed_trainers.trainers.utils import get_logger, str2bool
 
 if __name__ == '__main__':
 
@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
-    logger = set_logger(args)
+    logger = get_logger(args)
     logger.info(f"Args: {args}")
 
     sweep_configuration = {

@@ -1,4 +1,5 @@
 import gc
+from argparse import ArgumentParser
 from typing import Optional, Tuple
 import numpy as np
 import torch
@@ -217,3 +218,12 @@ def add_new_gradients_to_history(new_gradients: torch.Tensor,
     filled_history_size = basis_gradients_cpu.shape[0]
 
     return basis_gradients, basis_gradients_cpu, filled_history_size
+
+
+def add_arguments_gep(parser: ArgumentParser):
+    ##################################
+    #       GEP args                 #
+    ##################################
+    parser.add_argument("--gradients_history_size", type=int,
+                        default=500, help="amount of past gradients participating in embedding subspace computation")
+    parser.add_argument("--basis_size", type=int, default=10, help="number of basis vectors")

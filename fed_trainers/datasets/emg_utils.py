@@ -270,3 +270,15 @@ def get_dataloaders(args):
 def get_optimizer(args, network):
     return torch.optim.SGD(network.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9) \
         if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
+
+def add_arguments_putemg(parser, working_dir: Path):
+    parser.add_argument("--num-features", type=int, default=320, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features-per-channel", type=int, default=16,
+                        help="Number of extracted features per channel")
+    parser.add_argument("--data_path", type=str,
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        default=(working_dir / 'data/EMG/putEMG/Data-HDF5-Features-Short-Time').as_posix(),
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
+                        # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
+                        help="dir path for dataset")
+    return parser

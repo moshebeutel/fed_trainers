@@ -8,10 +8,10 @@ import torch
 from backpack.extensions import BatchGrad
 from tqdm import trange
 from fed_trainers.trainers.gep.gep_utils import add_new_gradients_to_history, compute_subspace, embed_grad, project_back_embedding
-from fed_trainers.trainers.model import get_model
-from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, \
+from fed_trainers.trainers.utils import get_device, local_train, flatten_tensor, eval_model, update_frame, \
     log2wandb, \
-    load_aggregated_grads_to_global_net, compute_steps, get_sigma, get_optimizer
+    load_aggregated_grads_to_global_net, compute_steps, get_sigma
+from fed_trainers.trainers.factory import get_optimizer, get_clients, get_model
 from backpack import extend, backpack
 
 def local_user_private_train(args, net, train_loader, pbar, pbar_dict: Dict):

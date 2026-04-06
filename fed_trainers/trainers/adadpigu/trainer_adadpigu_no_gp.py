@@ -13,11 +13,11 @@ from backpack import backpack, extend
 from backpack.extensions import BatchGrad
 from fed_trainers.trainers.adadpigu.utils import accumulate_importance, generate_topk_mask, MaskScheduler, \
     evaluate_on_trainset
-from fed_trainers.trainers.model import get_model
 from fed_trainers.trainers.rdp_accountant import compute_rdp, get_privacy_spent
-from fed_trainers.trainers.utils import get_clients, get_device, flatten_tensor, \
+from fed_trainers.trainers.utils import get_device, flatten_tensor, \
     load_aggregated_grads_to_global_net, eval_model, log2wandb, wandb_plot_confusion_matrix, update_frame, \
-    get_optimizer, compute_steps
+    compute_steps
+from fed_trainers.trainers.factory import get_optimizer, get_clients, get_model
 
 
 def initialize_results_file(results_file, base_pruning_rate):

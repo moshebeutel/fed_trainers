@@ -5,12 +5,13 @@ import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
-from fed_trainers.trainers.utils import detach_to_numpy, get_optimizer, get_device, set_logger
+from fed_trainers.trainers.utils import detach_to_numpy, get_device, get_logger
+from fed_trainers.trainers.factory import get_optimizer
 
 
 @torch.no_grad()
 def eval_model(args, global_model, client_ids, train_loaders, eval_loaders, GPs):
-    logger = set_logger(args)
+    logger = get_logger(args)
     # results: defaultdict[int, defaultdict[str, float]] = defaultdict()
     results = defaultdict(lambda: defaultdict(list))
 
@@ -167,7 +168,7 @@ def local_train(args, net, train_loader,
     return local_net, train_avg_loss
 
 
-def parse_args(parser):
+def add_arguments_gp(parser):
     # parser.add_argument("--n-kernels", type=int, default=16, help="number of kernels")
 
     # parser.add_argument('--embed-dim', type=int, default=64)

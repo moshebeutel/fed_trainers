@@ -1,29 +1,19 @@
 import argparse
 from pathlib import Path
-
 import torch
 import wandb
-from fed_trainers.datasets.dataset import gen_random_loaders
+
+from fed_trainers.trainers.factory import get_dataloaders
 from fed_trainers.trainers.gep import trainer_gep_user_private_no_gp
-from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, compute_steps, \
+from fed_trainers.trainers.utils import get_logger, set_seed, str2bool, compute_steps, \
     compute_sample_probability, get_sigma
 
-
-def get_dataloaders(args):
-    train_loaders, val_loaders, test_loaders = gen_random_loaders(
-        args.data_name,
-        args.data_path,
-        args.num_clients,
-        args.batch_size,
-        args.classes_per_client)
-
-    return train_loaders, val_loaders, test_loaders
 
 def train(args):
     set_seed(args.seed)
     q = compute_sample_probability(args)
     steps = compute_steps(args)
-    logger = set_logger(args)
+    logger = get_logger(args)
     logger.info(f"steps: {steps}")
     logger.info(f"sample probability (q): {q}")
 
@@ -121,7 +111,7 @@ def main():
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
-    logger = set_logger(args)
+    logger = get_logger(args)
     logger.info(f"Args: {args}")
     set_seed(args.seed)
 

@@ -7,9 +7,10 @@ import torch
 from tqdm import trange
 from gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
     compute_subspace
-from fed_trainers.trainers.model import get_model
-from fed_trainers.trainers.utils import get_clients, get_device, local_train, flatten_tensor, eval_model, update_frame, log2wandb, \
-    load_aggregated_grads_to_global_net, get_optimizer
+from fed_trainers.trainers.utils import get_device, local_train, flatten_tensor, eval_model, log2wandb, \
+    load_aggregated_grads_to_global_net \
+    # , update_frame
+from fed_trainers.trainers.factory import get_optimizer, get_clients, get_model
 
 
 def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):

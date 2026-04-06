@@ -6,7 +6,7 @@ from fed_trainers.datasets.emg_utils import get_num_users
 from fed_trainers.sweepers.sweep_utils import sweep
 from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.gep import trainer_putEMG_gep_public_no_gp
-from fed_trainers.trainers.utils import set_logger, str2bool
+from fed_trainers.trainers.utils import get_logger, str2bool
 
 
 def main():
@@ -47,6 +47,11 @@ def main():
     parser.add_argument("--min_global_lr", type=float, default=0.01,
                         help="min value for decreasing server learning rate")
     parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
+    ##################################
+    #       DP args                  #
+    ##################################
+    parser.add_argument("--dp_method", type=str, default=dp_method,
+                        choices=['sgd_dp', 'gep_public'], help="Differential Privacy method")
     parser.add_argument("--clip", type=float, default=1, help="gradient clip")
     parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
                                                                             "to be multiplied by clip")
@@ -115,12 +120,12 @@ def main():
     parser.add_argument("--sweep_metric_goal", type=str, default="maximize", choices=['maximize', 'minimize'], help="maximize or minimize in sweep")
 
     if use_gp:
-        parser = gp_utils.parse_args(parser)
+        parser = gp_utils.add_arguments_gp(parser)
     args = parser.parse_args()
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
-    logger = set_logger(args)
+    logger = get_logger(args)
     logger.info(f"Args: {args}")
 
     # sweep_configuration = {

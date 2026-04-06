@@ -5,17 +5,17 @@ import numpy as np
 import torch
 from tqdm import trange
 from pFedGP.pFedGP.Learner import pFedGPFullLearner
-from fed_trainers.trainers.model import get_model
 from fed_trainers.trainers.gp_utils import local_train, eval_model
-from fed_trainers.trainers.utils import (get_clients, get_device, flatten_tensor,
+from fed_trainers.trainers.utils import (get_device, flatten_tensor,
     # update_frame, \
                                          log2wandb, calc_metrics, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
-from fed_trainers.trainers.utils import set_logger
+from fed_trainers.trainers.factory import get_clients, get_model
+from fed_trainers.trainers.utils import get_logger
 
 def train(args, dataloaders):
-    logger = set_logger(args)
+    logger = get_logger(args)
 
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1, train_acc_of_best_model = 0.0, 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}

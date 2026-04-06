@@ -7,23 +7,10 @@ import torch
 import wandb
 from torch.utils.data import DataLoader
 
-from fed_trainers.datasets.dataset import gen_random_loaders
 from fed_trainers.trainers.adadpigu.trainer_adadpigu_no_gp import train
-from fed_trainers.trainers.utils import set_logger, set_seed, str2bool, get_sigma, compute_steps, \
+from fed_trainers.trainers.factory import get_dataloaders
+from fed_trainers.trainers.utils import get_logger, set_seed, str2bool, get_sigma, compute_steps, \
     compute_sample_probability
-
-
-def get_dataloaders(args):
-    train_loaders, val_loaders, test_loaders = gen_random_loaders(
-        args.data_name,
-        args.data_path,
-        args.num_clients,
-        args.batch_size,
-        args.classes_per_client)
-
-    return train_loaders, val_loaders, test_loaders
-
-
 
 
 def main():
@@ -112,7 +99,7 @@ def main():
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
-    logger = set_logger(args)
+    logger = get_logger(args)
     logger.debug(f"Args: {args}")
     set_seed(args.seed)
 
@@ -147,7 +134,7 @@ def main():
     base_dir = f'results_maskdp_{args.data_name}_eps{args.eps}_{timestamp}'
     os.makedirs(base_dir, exist_ok=True)
 
-    trainloaders: tuple[DataLoader, DataLoader, DataLoader] = get_dataloaders(args)
+    trainloaders = get_dataloaders(args)
 
 
     for batch_size in [args.batch_size]:
