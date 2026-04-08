@@ -7,7 +7,8 @@ import torch
 from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.gep import trainer_cifar10_gep_public_no_gp
 from fed_trainers.sweepers.sweep_utils import sweep
-from fed_trainers.trainers.utils import get_logger, str2bool
+from fed_trainers.trainers.utils import str2bool
+from fed_trainers.trainers.factory import get_logger
 
 
 def main():

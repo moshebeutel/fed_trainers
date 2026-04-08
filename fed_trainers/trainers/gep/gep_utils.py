@@ -227,3 +227,4 @@ def add_arguments_gep(parser: ArgumentParser):
     parser.add_argument("--gradients_history_size", type=int,
                         default=500, help="amount of past gradients participating in embedding subspace computation")
     parser.add_argument("--basis_size", type=int, default=10, help="number of basis vectors")
+    return parser

@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-#python = "^3.12"  # 3.9 in dsi servers
+python = "^3.12"  # 3.9 in dsi servers
 #torch = "^2.3.0"
 #torchvision = "^0.18"
 #tqdm = "^4.66.4"
@@ -25,7 +25,7 @@ packages = [
 #ipykernel = "^7.1.0"
 #matplotlib = "^3.10.8"
 #tables = "^3.10.2"
-python = "3.8.13"
+#python = "3.9.1"
 torch = "^2.3.1"
 torchvision = "^0.18.1"
 tqdm = "^4.66.4"
@@ -34,14 +34,14 @@ pyeeg = {path = "pyeeg"}
 pandas = "^2.2"
 scikit-learn = "^1.7.2"
 backpack-for-pytorch = "^1.7.1"
-pandas-stubs = "~=2.2.3"
+#pandas-stubs = "~=2.2.3"
 wandb-workspaces = "^0.3.3"
-ipykernel = "^7.1.0"
-matplotlib = "^3.10.8"
+#ipykernel = "^7.1.0"
+#matplotlib = "^3.10.8"
 tables = "^3.10.2"
-scipy-stubs = "~=1.15.1"
+#scipy-stubs = "~=1.15.1"
 gpytorch = "^1.12"
-pypolyagamma = "^1.2.3"
+#pypolyagamma = "^1.2.3"
 #pFedGP = { path = "./pFedGP/", develop = true }
 #pFedGP = { git = "https://github.com/moshebeutel/pFedGP.git"}
 
@@ -68,6 +68,9 @@ sweep_putemg_gep_public = 'fed_trainers.sweepers.gep.sweeper_putemg_gep_public_n
 
 train_putemg_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_putEMG_dp_no_gp:main'
 train_putemg_gep_public = 'fed_trainers.trainers.gep.trainer_putEMG_gep_public_no_gp:main'
+
+train_keypressemg_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_keypressemg_sgd_dp_no_gp:main'
+
 
 [build-system]
 requires = ["poetry-core"]

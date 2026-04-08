@@ -4,7 +4,8 @@ import logging
 from pathlib import Path
 import torch
 import wandb
-from fed_trainers.trainers.utils import get_logger, set_seed, str2bool
+from fed_trainers.trainers.utils import set_seed, str2bool
+from fed_trainers.trainers.factory import get_logger
 import trainer_gep_aux_no_gp
 from fed_trainers.datasets import emg_utils
 from fed_trainers.datasets.keypressemg import keypressemg_utils

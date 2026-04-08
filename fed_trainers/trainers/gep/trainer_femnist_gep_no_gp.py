@@ -4,7 +4,8 @@ import torch
 import wandb
 from fed_trainers.datasets.femnist_utils import get_dataloaders
 from trainer_gep_private_no_gp import train
-from fed_trainers.trainers.utils import get_logger, set_seed, str2bool
+from fed_trainers.trainers.utils import set_seed, str2bool
+from fed_trainers.trainers.factory import get_logger
 
 if __name__ == '__main__':
 

@@ -32,7 +32,6 @@ def add_arguments(data_name: str, dp_method: str,
                         choices=['adam', 'sgd'], help="optimizer type")
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--inner_steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
     parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
     parser.add_argument("--global_lr", type=float, default=1.0, help="server learning rate")
     parser.add_argument("--lr_dec_rate", type=float, default=0.99, help="learning rate decrease rate")
@@ -113,10 +112,11 @@ def add_arguments(data_name: str, dp_method: str,
             parser = add_arguments_keypressemg(parser, working_dir)
         else:
             raise ArgumentError(f'{data_name} not supported')
+        parser.add_argument("--num_client_agg", type=int, default=5, help="number of clients per step")
     else:
         parser.add_argument("--data_path", type=str, default=(working_dir / f"data/{data_name.upper()}/").as_posix(),
                             help="dir path for dataset")
-
+        parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
 
     args = parser.parse_args()
     return args

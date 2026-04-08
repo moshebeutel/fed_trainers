@@ -124,6 +124,8 @@ def get_dataloaders(args):
     
     num_channels = 24
     num_features_per_channel = len(features)
+    logger.info(f'Number of channels: {num_channels}')
+    logger.info(f'Number of features per channel: {num_features_per_channel}')
     train_size, val_size = 0.8, 0.2
 
     assert len(features) == args.num_features_per_channel, f'Expected {len(features)} features extracted from each channel'
@@ -272,7 +274,8 @@ def get_optimizer(args, network):
         if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
 
 def add_arguments_putemg(parser, working_dir: Path):
-    parser.add_argument("--num-features", type=int, default=320, help="Number of extracted features (model input size)")
+    parser.add_argument("--depth_power", type=int, default=1)
+    parser.add_argument("--num-features", type=int, default=384, help="Number of extracted features (model input size)")
     parser.add_argument("--num-features-per-channel", type=int, default=16,
                         help="Number of extracted features per channel")
     parser.add_argument("--data_path", type=str,

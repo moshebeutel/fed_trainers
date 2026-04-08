@@ -1,14 +1,16 @@
+import logging
+import time
+from pathlib import Path
 from typing import Any
 import torch
 
 from fed_trainers.datasets.dataset import gen_random_loaders
 from fed_trainers.trainers.model import CIFAR10_CNN_Tanh, ResNet, get_n_params, FeatureModel, initialize_weights
-from fed_trainers.trainers.utils import get_logger
 
 
 def get_trainer(args) -> Any:
 
-    if args.dp_method == 'dp_sgd':
+    if args.dp_method == 'sgd_dp':
         if args.use_gp:
             from fed_trainers.trainers.dp_sgd import trainer_sgd_dp_with_gp as trainer
         else:
@@ -76,6 +78,7 @@ def get_model(args):
     initialize_weights(model)
 
     logger = get_logger(args)
+    logger.debug(f'Model 1st layer shape: {next(model.parameters()).shape}')
     logger.info(f'Number Parameters: {get_n_params(model)}')
 
     return model
@@ -98,3 +101,23 @@ def get_dataloaders(args):
         args.classes_per_client)
 
     return train_loaders, val_loaders, test_loaders
+
+
+def get_logger(args):
+    logger = logging.getLogger(args.log_name)
+    logger.setLevel(args.log_level)
+    if logger.handlers:
+        return logger
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    log_dir = Path(args.log_dir)
+    log_dir.mkdir(exist_ok=True)
+    file_handler = logging.FileHandler(log_dir / f'{args.log_name}_{time.asctime()}.log')
+    file_handler.setLevel(args.log_level)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    return logger

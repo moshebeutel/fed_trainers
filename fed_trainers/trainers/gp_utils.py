@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
-from fed_trainers.trainers.utils import detach_to_numpy, get_device, get_logger
-from fed_trainers.trainers.factory import get_optimizer
+from fed_trainers.trainers.utils import detach_to_numpy, get_device
+from fed_trainers.trainers.factory import get_optimizer, get_logger
 
 
 @torch.no_grad()

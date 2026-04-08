@@ -5,7 +5,8 @@ import torch
 from fed_trainers.trainers.dp_sgd import trainer_keypressemg_sgd_dp_no_gp
 from fed_trainers.datasets.keypressemg.keypressemg_utils import get_num_users
 from sweep_utils import sweep
-from fed_trainers.trainers.utils import get_logger, str2bool
+from fed_trainers.trainers.utils import str2bool
+from fed_trainers.trainers.factory import get_logger
 
 if __name__ == '__main__':
 

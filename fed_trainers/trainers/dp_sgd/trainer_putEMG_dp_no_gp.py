@@ -4,9 +4,9 @@ import torch
 import wandb
 
 from fed_trainers.datasets.emg_utils import get_num_users
-from fed_trainers.trainers.factory import get_dataloaders, get_trainer
+from fed_trainers.trainers.factory import get_dataloaders, get_trainer, get_logger
 from fed_trainers.trainers.params import add_arguments
-from fed_trainers.trainers.utils import get_logger, set_seed, log_data_statistics, compute_sample_probability, \
+from fed_trainers.trainers.utils import set_seed, log_data_statistics, compute_sample_probability, \
     compute_steps, get_sigma, create_wandb_report
 
 

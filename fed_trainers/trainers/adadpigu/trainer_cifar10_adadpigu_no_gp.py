@@ -8,8 +8,8 @@ import wandb
 from torch.utils.data import DataLoader
 
 from fed_trainers.trainers.adadpigu.trainer_adadpigu_no_gp import train
-from fed_trainers.trainers.factory import get_dataloaders
-from fed_trainers.trainers.utils import get_logger, set_seed, str2bool, get_sigma, compute_steps, \
+from fed_trainers.trainers.factory import get_dataloaders, get_logger
+from fed_trainers.trainers.utils import set_seed, str2bool, get_sigma, compute_steps, \
     compute_sample_probability
 
 

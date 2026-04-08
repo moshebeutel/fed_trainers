@@ -2,9 +2,9 @@ import argparse
 from pathlib import Path
 import torch
 import wandb
-from fed_trainers.trainers.factory import get_dataloaders
+from fed_trainers.trainers.factory import get_dataloaders, get_logger
 from fed_trainers.trainers.gep import trainer_gep_public_private_no_gp
-from fed_trainers.trainers.utils import get_logger, set_seed, str2bool, get_sigma, compute_steps, \
+from fed_trainers.trainers.utils import set_seed, str2bool, get_sigma, compute_steps, \
     compute_sample_probability
 
 

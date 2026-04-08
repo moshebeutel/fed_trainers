@@ -5,8 +5,9 @@ import torch
 import wandb
 from fed_trainers.datasets.dataset import gen_random_loaders
 from fed_trainers.trainers.gep import trainer_gep_private_no_gp
-from fed_trainers.trainers.utils import get_logger, set_seed, str2bool, compute_steps, \
+from fed_trainers.trainers.utils import set_seed, str2bool, compute_steps, \
     compute_sample_probability, get_sigma
+from fed_trainers.trainers.factory import get_logger
 
 
 def get_dataloaders(args):

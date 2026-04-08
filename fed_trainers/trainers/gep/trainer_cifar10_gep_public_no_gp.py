@@ -2,9 +2,9 @@ import os
 from pathlib import Path
 import torch
 import wandb
-from fed_trainers.trainers.factory import get_trainer, get_dataloaders
+from fed_trainers.trainers.factory import get_trainer, get_dataloaders, get_logger
 from fed_trainers.trainers.params import add_arguments
-from fed_trainers.trainers.utils import get_logger, set_seed, get_sigma, compute_steps, \
+from fed_trainers.trainers.utils import set_seed, get_sigma, compute_steps, \
     compute_sample_probability, create_wandb_report
 
 

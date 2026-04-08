@@ -5,7 +5,8 @@ import torch
 import wandb
 from fed_trainers.datasets.emg_utils import get_dataloaders, get_num_users
 import trainer_gep_private_no_gp
-from fed_trainers.trainers.utils import get_logger, set_seed, str2bool
+from fed_trainers.trainers.utils import set_seed, str2bool
+from fed_trainers.trainers.factory import get_logger
 
 
 def train(args):

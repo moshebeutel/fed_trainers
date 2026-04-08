@@ -12,8 +12,8 @@ from fed_trainers.trainers.utils import (get_device, local_train, flatten_tensor
                                          log2wandb, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
-from fed_trainers.trainers.factory import get_clients, get_model
-from fed_trainers.trainers.utils import get_logger
+from fed_trainers.trainers.factory import get_clients, get_model, get_logger
+
 
 def train(args, dataloaders):
     logger = get_logger(args)

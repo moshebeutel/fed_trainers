@@ -5,7 +5,6 @@ import logging
 import os
 import random
 import sys
-import time
 import warnings
 from argparse import Namespace
 from contextlib import contextmanager
@@ -17,7 +16,7 @@ import torch
 import wandb
 from torch.utils.data import DataLoader, random_split
 
-from fed_trainers.trainers.factory import get_optimizer
+from fed_trainers.trainers.factory import get_optimizer, get_logger
 from fed_trainers.trainers.rdp_accountant import compute_rdp, get_privacy_spent
 
 
@@ -39,26 +38,6 @@ def set_seed(seed, cudnn_enabled=True):
     torch.backends.cudnn.enabled = cudnn_enabled
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-
-
-def get_logger(args):
-    logger = logging.getLogger(args.log_name)
-    logger.setLevel(args.log_level)
-    if logger.handlers:
-        return logger
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    log_dir = Path(args.log_dir)
-    log_dir.mkdir(exist_ok=True)
-    file_handler = logging.FileHandler(log_dir / f'{args.log_name}_{time.asctime()}.log')
-    file_handler.setLevel(args.log_level)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    return logger
 
 
 def get_device(cuda=True, gpus='0'):
@@ -662,7 +641,7 @@ def load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, glob
 
 
 def log_data_statistics(dataloaders: Collection[DataLoader], args: Namespace) -> None:
-    if not args.log_data_statistics:
+    if not (hasattr(args, 'log_data_statistics') and args.log_data_statistics):
         return
 
     train_loaders, val_loaders, test_loaders = dataloaders
