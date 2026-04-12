@@ -6,8 +6,7 @@ from fed_trainers.trainers.factory import get_trainer, get_dataloaders, get_logg
 from fed_trainers.trainers.params import add_arguments
 from fed_trainers.trainers.utils import set_seed, log_data_statistics, compute_sample_probability, \
     compute_steps, get_sigma, create_wandb_report
-from fed_trainers.datasets.emg_utils import get_num_users
-
+from fed_trainers.datasets.keypressemg.keypressemg_utils import get_num_users
 
 def train(args):
     set_seed(args.seed)

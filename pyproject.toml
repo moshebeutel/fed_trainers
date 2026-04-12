@@ -44,6 +44,7 @@ gpytorch = "^1.12"
 #pypolyagamma = "^1.2.3"
 #pFedGP = { path = "./pFedGP/", develop = true }
 #pFedGP = { git = "https://github.com/moshebeutel/pFedGP.git"}
+matplotlib = "^3.10.8"
 
 
 [tool.poetry.scripts]
@@ -70,6 +71,7 @@ train_putemg_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_putEMG_dp_no_gp:main
 train_putemg_gep_public = 'fed_trainers.trainers.gep.trainer_putEMG_gep_public_no_gp:main'
 
 train_keypressemg_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_keypressemg_sgd_dp_no_gp:main'
+train_keypressemg_gep_public = 'fed_trainers.trainers.gep.trainer_keypressemg_gep_public_no_gp:main'
 
 
 [build-system]
