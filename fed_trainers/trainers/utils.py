@@ -644,10 +644,12 @@ def log_data_statistics(dataloaders: Collection[DataLoader], args: Namespace) ->
     if not (hasattr(args, 'log_data_statistics') and args.log_data_statistics):
         return
 
+    logger = get_logger(args)
+
     train_loaders, val_loaders, test_loaders = dataloaders
 
     num_classes = args.num_classes
-    num_channels = args.num_features / args.num_features_per_channel
+    num_channels = args.num_features // args.num_features_per_channel
     for k, v in train_loaders.items():
         train_data = []
         train_labels = []
@@ -668,27 +670,29 @@ def log_data_statistics(dataloaders: Collection[DataLoader], args: Namespace) ->
         # test_data = (test_data - test_data.min(0).values) / (test_data.max(0).values - test_data.min(0).values)
         test_labels = torch.cat(test_labels)
 
-        train_data = torch.stack(
-            [train_data[i].reshape(-1, num_channels).mean(1).squeeze() for i in range(train_data.shape[0])])
-        test_data = torch.stack(
-            [test_data[i].reshape(-1, num_channels).mean(1).squeeze() for i in range(test_data.shape[0])])
+        # train_data = torch.stack(
+        #     [train_data[i].reshape(-1, num_channels).mean(1).squeeze() for i in range(train_data.shape[0])])
+        # test_data = torch.stack(
+        #     [test_data[i].reshape(-1, num_channels).mean(1).squeeze() for i in range(test_data.shape[0])])
 
-        label_inds = [(train_labels == i).nonzero() for i in range(num_classes)]
-        train_data = [train_data[inds].squeeze() for inds in label_inds]
+        logger.info(f'client {k}: train_data shape {train_data.shape}, test_data shape {test_data.shape}')
 
-        label_inds = [(test_labels == i).nonzero() for i in range(num_classes)]
-        test_data = [test_data[inds].squeeze() for inds in label_inds]
-
-        train_data_means = [t.mean(0) for t in train_data]
-        test_data_means = [t.mean(0) for t in test_data]
-
-        print('client', k)
-        for i in range(num_classes):
-            print('label', i)
-            train_mean = train_data_means[i]
-            test_mean = test_data_means[i]
-
-            print('mean-mean similarity\t', torch.cosine_similarity(train_mean, test_mean, dim=0))
+        # label_inds = [(train_labels == i).nonzero() for i in range(num_classes)]
+        # train_data = [train_data[inds].squeeze() for inds in label_inds]
+        #
+        # label_inds = [(test_labels == i).nonzero() for i in range(num_classes)]
+        # test_data = [test_data[inds].squeeze() for inds in label_inds]
+        #
+        # train_data_means = [t.mean(0) for t in train_data]
+        # test_data_means = [t.mean(0) for t in test_data]
+        #
+        # print('client', k)
+        # for i in range(num_classes):
+        #     print('label', i)
+        #     train_mean = train_data_means[i]
+        #     test_mean = test_data_means[i]
+        #
+        #     print('mean-mean similarity\t', torch.cosine_similarity(train_mean, test_mean, dim=0))
 
 
 def loop_for_sigma(q, T, eps, delta, cur_sigma, interval, rdp_orders=32, rgp=False):

@@ -107,9 +107,15 @@ def add_arguments(data_name: str, dp_method: str,
         if data_name == 'putEMG':
             from fed_trainers.datasets.emg_utils import add_arguments_putemg
             parser = add_arguments_putemg(parser, working_dir)
+            if 'aux' in dp_method.lower():
+                from fed_trainers.datasets.keypressemg.keypressemg_utils import add_arguments_keypressemg_as_aux
+                parser = add_arguments_keypressemg_as_aux(parser, working_dir)
         elif data_name == 'keypressemg':
             from fed_trainers.datasets.keypressemg.keypressemg_utils import add_arguments_keypressemg
             parser = add_arguments_keypressemg(parser, working_dir)
+            if 'aux' in dp_method.lower():
+                from fed_trainers.datasets.emg_utils import add_arguments_putemg_as_aux
+                parser = add_arguments_putemg_as_aux(parser, working_dir)
         else:
             raise ArgumentError(f'{data_name} not supported')
         parser.add_argument("--num_client_agg", type=int, default=5, help="number of clients per step")

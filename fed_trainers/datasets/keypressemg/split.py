@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, List
 import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
@@ -136,26 +136,26 @@ def get_split_between_days_arrays(root: Path,
     return X_train, y_train, X_test, y_test
 
 
-def get_split_between_days_dataset(root: Path, participant: Participant, train_day: DayT1T2, scale: bool = True):
+def get_split_between_days_dataset(root: Path, participant: Participant, train_day: DayT1T2, scale: bool = True,
+                                   features_inds: List[int] = None,
+                                   channels_inds: List[int] = None):
     """
-    Splits the dataset between two days for a given participant into training and testing sets.
+    Splits and preprocesses a dataset into training and test sets based on participant and day information.
+
+    The function loads the dataset for a given participant and training day, then splits it by day, ensuring that
+    the training and test datasets correspond to different days. The data can optionally be scaled and filtered
+    for specific feature or channel indices.
 
     Args:
-        root (Path): The root directory where the data is stored.
-        participant (Participant): The participant for whom the data is being loaded.
-        train_day (DayT1T2): The day to be used for training.
-        scale (bool, optional): Whether to scale the data before splitting.
-            Defaults to True.
-
+        root (Path): Root directory containing the dataset.
+        participant (Participant): Participant identifier for the dataset.
+        train_day (DayT1T2): Training day identifier. This determines the split based on the other day.
+        scale (bool): Whether to scale the data using a predefined scaling approach. Default is True.
+        features_inds (List[int]): Indices of features to retain from the dataset. If None, all features are used.
+        channels_inds (List[int]): Indices of channels to retain from the dataset. If None, all channels are used.
 
     Returns:
-        tuple[Dataset, Dataset]: A tuple containing the training dataset from `train_day`
-            and the testing dataset from the other day as `TensorDataset` objects.
-
-    Raises:
-        AssertionError: If the root path does not exist or is not a directory.
-        AssertionError: If the number of signal windows does not match the number of labels
-            for either the training or testing datasets.
+        Tuple[TensorDataset, TensorDataset]: A tuple containing the training dataset and test dataset.
     """
     assert root.exists(), f'{root} does not exist'
     assert root.is_dir(), f'{root} is not a directory'
@@ -168,6 +168,13 @@ def get_split_between_days_dataset(root: Path, participant: Participant, train_d
                                         f'Got {len(X_test)} windows != {len(y_test)} labels')
 
     X_train, y_train, X_test, y_test = get_split_between_days_arrays(root, participant, train_day, scale)
+    if features_inds is not None:
+        X_train = X_train.reshape(-1, 16, 20)[..., features_inds].reshape(-1, 16*len(features_inds))
+        X_test = X_test.reshape(-1, 16, 20)[..., features_inds].reshape(-1, 16*len(features_inds))
+    if channels_inds is not None:
+        X_train = X_train.reshape(-1, 16, 16)[:, channels_inds, :].reshape(-1, 16*len(channels_inds))
+        X_test = X_test.reshape(-1, 16, 16)[:, channels_inds, :].reshape(-1, 16*len(channels_inds))
+
 
     return (TensorDataset(torch.from_numpy(X_train).float(),
                           torch.from_numpy(y_train).long()),
@@ -183,9 +190,8 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logging.info("Split between days")
-    train_ds, test_ds = get_split_between_days_dataset(root=VALID_WINDOWS_ROOT,
-                                 participant=Participant.P1,
-                                 train_day=DayT1T2.T1, scale=True)
+    train_ds, test_ds = get_split_between_days_dataset(root=VALID_WINDOWS_ROOT, participant=Participant.P1,
+                                                       train_day=DayT1T2.T1, scale=True)
     logging.info(f'dataset contains {ds.__len__()} windows')
     trainloader = DataLoader(train_ds, batch_size=8, shuffle=True)
     for batch_windows, batch_labels in trainloader:

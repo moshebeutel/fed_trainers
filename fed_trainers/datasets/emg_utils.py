@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any, List
 import torch
 from torch.utils.data import random_split
 
@@ -16,6 +16,50 @@ def get_user_list():
     #         '22', '23', '24', '25', '26', '27', '29', '30', '31', '33', '34', '35', '36', '38', '39', '42', '43', '45',
     #         '46', '47', '48', '49', '50', '51', '53', '54']
 
+
+def get_features() -> List[Any]:
+    # features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP'] if args.num_features == 8 * 24 else ["IAV",
+    #                                                                                                         "AAC",
+    #                                                                                                         "DASDV",
+    #                                                                                                         "Kurt",
+    #                                                                                                         "MAV1",
+    #                                                                                                         "MAV2",
+    #                                                                                                         "MAV",
+    #                                                                                                         "MHW",
+    #                                                                                                         'RMS',
+    #                                                                                                         "Skew",
+    #                                                                                                         "SSI",
+    #                                                                                                         'VAR',
+    #                                                                                                         'WL',
+    #                                                                                                         "MNF",
+    #                                                                                                         "MDF",
+    #                                                                                                         "PKF",
+    #                                                                                                         "MNP",
+    #                                                                                                         "TTP",
+    #                                                                                                         "VCF",
+    #                                                                                                         "OHM"]
+
+    features = ["IAV",
+                "AAC",
+                "DASDV",
+                # "Kurt",
+                # "MAV1",
+                # "MAV2",
+                "MAV",
+                "MHW",
+                'RMS',
+                # "Skew",
+                "SSI",
+                'VAR',
+                'WL',
+                "MNF",
+                "MDF",
+                "PKF",
+                "MNP",
+                "TTP",
+                "VCF",
+                "OHM"]
+    return features
 
 def get_num_users():
     return len(get_user_list())
@@ -78,58 +122,20 @@ def get_dataloaders(args):
 
         # dfs[r] = pd.DataFrame(pd.read_hdf(os.path.join(calculated_features_folder,
         #                                                filename + '_filtered_features.hdf5')))
-    # features = ['RMS', 'MAV', 'WL', 'ZC', 'SSC', 'IAV', 'VAR', 'WAMP'] if args.num_features == 8 * 24 else ["IAV",
-    #                                                                                                         "AAC",
-    #                                                                                                         "DASDV",
-    #                                                                                                         "Kurt",
-    #                                                                                                         "MAV1",
-    #                                                                                                         "MAV2",
-    #                                                                                                         "MAV",
-    #                                                                                                         "MHW",
-    #                                                                                                         'RMS',
-    #                                                                                                         "Skew",
-    #                                                                                                         "SSI",
-    #                                                                                                         'VAR',
-    #                                                                                                         'WL',
-    #                                                                                                         "MNF",
-    #                                                                                                         "MDF",
-    #                                                                                                         "PKF",
-    #                                                                                                         "MNP",
-    #                                                                                                         "TTP",
-    #                                                                                                         "VCF",
-    #                                                                                                         "OHM"]
-
-    features = ["IAV",
-                "AAC",
-                "DASDV",
-                # "Kurt",
-                # "MAV1",
-                # "MAV2",
-                "MAV",
-                "MHW",
-                'RMS',
-                # "Skew",
-                "SSI",
-                'VAR',
-                'WL',
-                "MNF",
-                "MDF",
-                "PKF",
-                "MNP",
-                "TTP",
-                "VCF",
-                "OHM"]
+    features = get_features()
 
     logger.info(f'Found {len(dfs)} dataframes')
     
-    num_channels = 24
+    num_channels = args.num_features // args.num_features_per_channel
+    expected_num_channels = [24, 8]
+    assert num_channels in expected_num_channels, f'Expected channels one of {expected_num_channels}. Got {num_channels}'
     num_features_per_channel = len(features)
     logger.info(f'Number of channels: {num_channels}')
     logger.info(f'Number of features per channel: {num_features_per_channel}')
     train_size, val_size = 0.8, 0.2
 
     assert len(features) == args.num_features_per_channel, f'Expected {len(features)} features extracted from each channel'
-    assert (len(features) * 24) == args.num_features, f'Expected num features: {len(features) * 24}. Do not match args'
+    assert (len(features) * num_channels) == args.num_features, f'Expected num features: {len(features) * num_channels}. Do not match args'
     
 
     # defines gestures to be used in shallow learn
@@ -149,7 +155,7 @@ def get_dataloaders(args):
         "8chn_2band": {"begin": 9, "end": 16},
         # "8chn_3band": {"begin": 17, "end": 24}
     }
-    ch_range = channel_range['24chn']
+    ch_range = channel_range['24chn' if num_channels == 24 else '8chn_2band' if num_channels == 8 else '8chn_3band']
 
     num_clients = len(splits_all.values())
     train_loaders, val_loaders, test_loaders = {}, {}, {}
@@ -232,8 +238,6 @@ def get_dataloaders(args):
             train_y_s.append(train_y)
             test_y_s.append(test_y_true)
 
-
-
             logger.debug(f'Train data list length: {len(train_x_s)}')
             logger.debug(f'Test data list length: {len(test_x_s)}')
 
@@ -268,17 +272,29 @@ def get_dataloaders(args):
 
     return train_loaders, val_loaders, test_loaders
 
-
-def get_optimizer(args, network):
-    return torch.optim.SGD(network.parameters(), lr=args.lr, weight_decay=args.wd, momentum=0.9) \
-        if args.optimizer == 'sgd' else torch.optim.Adam(network.parameters(), lr=args.lr, weight_decay=args.wd)
-
 def add_arguments_putemg(parser, working_dir: Path):
     parser.add_argument("--depth_power", type=int, default=1)
-    parser.add_argument("--num-features", type=int, default=384, help="Number of extracted features (model input size)")
+    parser.add_argument("--num-features", type=int, default=128, choices=[384, 128],
+                        help="Number of extracted features (model input size)")
     parser.add_argument("--num-features-per-channel", type=int, default=16,
                         help="Number of extracted features per channel")
     parser.add_argument("--data_path", type=str,
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
+                        default=(working_dir / 'data/EMG/putEMG/Data-HDF5-Features-Short-Time').as_posix(),
+                        # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
+                        # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
+                        help="dir path for dataset")
+    parser.add_argument('--log_data_statistics', type=str, default=False)
+
+    return parser
+
+def add_arguments_putemg_as_aux(parser, working_dir: Path):
+    parser.add_argument("--aux_data_name", type=str, default="putEMG")
+    parser.add_argument("--aux_num_features", type=int, default=128, choices=[384, 128],
+                        help="Number of extracted features (model input size)")
+    parser.add_argument("--aux_batch_size", type=int, default=512, help="Batch size for auxiliary data")
+
+    parser.add_argument("--aux_data_path", type=str,
                         # default='./data/EMG/putEMG/Data-HDF5-Features-NoArgs',
                         default=(working_dir / 'data/EMG/putEMG/Data-HDF5-Features-Short-Time').as_posix(),
                         # default='./data/EMG/putEMG/Data-HDF5-Features-Small',
