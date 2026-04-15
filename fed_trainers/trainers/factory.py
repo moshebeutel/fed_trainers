@@ -20,6 +20,11 @@ def get_trainer(args) -> Any:
             from fed_trainers.trainers.gep import trainer_gep_public_with_gp as trainer
         else:
             from fed_trainers.trainers.gep import trainer_gep_public_no_gp as trainer
+    elif args.dp_method == 'gep_aux':
+        if args.use_gp:
+            assert False, 'auxiliary data not supported with gp'
+        else:
+            from fed_trainers.trainers.gep import trainer_gep_aux_no_gp as trainer
     else:
         raise ValueError(f'Unsupported dp_method: {args.dp_method}')
     return trainer

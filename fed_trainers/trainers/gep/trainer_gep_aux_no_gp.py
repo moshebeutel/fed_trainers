@@ -13,7 +13,7 @@ from fed_trainers.trainers.utils import (get_device, local_train, flatten_tensor
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
 from fed_trainers.trainers.factory import get_clients, get_model, get_logger, get_optimizer
-
+import torch.nn.functional as F
 
 def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
     local_net = copy.deepcopy(net)
@@ -28,6 +28,9 @@ def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
     train_avg_loss = 0.0
     for k, batch in enumerate(train_loader):
         x, Y = batch
+        pad_size = args.num_features - x.shape[-1]
+        pad_pattern = (0, pad_size) if k % 2 == 0 else (pad_size, 0)
+        x = F.pad(x, pad=pad_pattern, mode='constant', value=0)
         # sampled_channels = np.random.choice(range(num_channels_aux), size=num_channels, replace=False)
         # x = x.reshape(-1, num_channels_aux, num_features_per_channel)
         # x = x[:, sampled_channels, :]

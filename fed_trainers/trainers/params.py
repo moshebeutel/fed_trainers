@@ -8,7 +8,9 @@ from fed_trainers.trainers.utils import str2bool
 def add_arguments(data_name: str, dp_method: str,
                   num_classes: int,
                   num_public_clients: int,
-                  num_users: int, use_gp: str, working_dir: Path):
+                  num_users: int, use_gp: str,
+                  working_dir: Path,
+                  return_parser: bool = False):
 
     parser = argparse.ArgumentParser(
         description=f"{'GP_' if use_gp else ''}{data_name.upper()} {dp_method.upper()} Federated Learning")
@@ -124,5 +126,7 @@ def add_arguments(data_name: str, dp_method: str,
                             help="dir path for dataset")
         parser.add_argument("--num_client_agg", type=int, default=20, help="number of clients per step")
 
+    if return_parser:
+        return parser
     args = parser.parse_args()
     return args

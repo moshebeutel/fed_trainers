@@ -1,16 +1,15 @@
 import copy
-import logging
 from collections import OrderedDict
 import numpy as np
 import torch
 from tqdm import trange
 
+from fed_trainers.trainers.factory import get_clients, get_model, get_logger
 from fed_trainers.trainers.utils import (get_device, local_train, flatten_tensor, eval_model,
     # update_frame, \
                                          log2wandb, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
-from fed_trainers.trainers.factory import get_clients, get_model, get_logger
 
 
 def train(args, dataloaders):
@@ -39,14 +38,9 @@ def train(args, dataloaders):
     current_epoch_train_avg_acc_list = []
     current_epoch_train_avg_loss_list = []
     current_epoch_val_avg_acc_list = []
-    current_epoch_grads_avg_norms = (0.0, 0.0)
-    current_epoch_train_avg_acc = 0.0
-    current_epoch_train_avg_loss = 0.0
-    current_epoch_val_avg_acc = 0.0
     step_iter = trange(num_steps)
-    pbar_dict = {'Step': '0',
-                 'Epoch': '0',
-                 # 'Client': '0',
+
+    pbar_dict = {'Step': '0', 'Epoch': '0',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
 
@@ -73,7 +67,6 @@ def train(args, dataloaders):
             train_loader = train_loaders[c_id]
 
             pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3),
-                              # 'Client': f'{c_id}'.zfill(3),
                               'Epoch': f'{(step // steps_in_epoch) + 1}'.zfill(3),
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',

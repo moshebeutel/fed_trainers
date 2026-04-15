@@ -1,9 +1,8 @@
+import copy
 import os
 from pathlib import Path
 import torch
 import wandb
-import copy
-import trainer_gep_aux_no_gp
 from fed_trainers.trainers.factory import get_trainer, get_dataloaders, get_logger
 from fed_trainers.trainers.params import add_arguments
 from fed_trainers.trainers.utils import set_seed, log_data_statistics, compute_sample_probability, \
@@ -35,7 +34,9 @@ def train(args):
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
 
-    trainer_gep_aux_no_gp.train(args, (train_loaders, val_loaders, test_loaders, aux_data_loaders))
+    trainer = get_trainer(args)
+
+    trainer.train(args, (train_loaders, val_loaders, test_loaders, aux_data_loaders))
 
 def main():
     data_name = 'keypressemg'

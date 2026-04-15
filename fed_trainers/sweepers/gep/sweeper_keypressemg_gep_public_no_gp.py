@@ -1,121 +1,84 @@
-import argparse
-import logging
+import os
 from pathlib import Path
 import torch
 from fed_trainers.trainers.gep import trainer_keypressemg_gep_public_no_gp
 from fed_trainers.datasets.keypressemg.keypressemg_utils import get_num_users
-from sweep_utils import sweep
-from fed_trainers.trainers.utils import str2bool
+from fed_trainers.sweepers.sweep_utils import sweep, load_config
 from fed_trainers.trainers.factory import get_logger
+from fed_trainers.trainers.params import add_arguments
 
-if __name__ == '__main__':
+def main():
 
-    parser = argparse.ArgumentParser(description="Sweep GEP Public Federated Learning Toronto Surface EMG Typing Database")
+    data_name = os.environ.get('DATA_NAME', 'keypressemg')
+    use_gp = os.environ.get('USE_GP', False)
+    dp_method = 'gep_public'
+
+    num_classes = 26
     num_users = get_num_users()
-    ##################################
-    #       Network args        #
-    ##################################
-    parser.add_argument("--depth_power", type=int, default=1)
-    parser.add_argument("--num-classes", type=int, default=26, help="Number of unique labels")
-    parser.add_argument("--num-features", type=int, default=320, help="Number of extracted features (model input size)")
+    num_public_clients = 3
+    working_dir = Path(__file__).resolve().parents[2]
 
-    ##################################
-    #       Optimization args        #
-    ##################################
-    parser.add_argument("--num-steps", type=int, default=200)
-    parser.add_argument("--optimizer", type=str, default='sgd',
-                        choices=['adam', 'sgd'], help="optimizer type")
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--inner-steps", type=int, default=1, help="number of inner steps")
-    parser.add_argument("--num-client-agg", type=int, default=5, help="number of clients per step")
-    parser.add_argument("--lr", type=float, default=1e-1, help="learning rate")
-    parser.add_argument("--global_lr", type=float, default=0.999, help="server learning rate")
-    parser.add_argument("--wd", type=float, default=1e-4, help="weight decay")
-    parser.add_argument("--clip", type=float, default=10.0, help="gradient clip")
-    parser.add_argument("--noise_multiplier", type=float, default=0.0, help="dp noise factor "
-                                                                            "to be multiplied by clip")
-    parser.add_argument("--calibration_split", type=float, default=0.0,
-                        help="split ratio of the test set for calibration before testing")
-    #############################
-    #       General args        #
-    #############################
-    parser.add_argument("--num-workers", type=int, default=0, help="number of workers")
-    parser.add_argument("--gpus", type=str, default='0', help="gpu device ID")
-    parser.add_argument("--exp-name", type=str, default='Sweep_GEP_public_keypressemg', help="suffix for exp name")
-    parser.add_argument("--save-path", type=str, default=(Path.home() / 'saved_models').as_posix(),
-                        help="dir path for saved models")
-    parser.add_argument("--seed", type=int, default=52, help="seed value")
-    parser.add_argument('--wandb', type=str2bool, default=True)
-    parser.add_argument('--log-data-statistics', type=str2bool, default=False)
+    parser = add_arguments(data_name, dp_method, num_classes, num_public_clients, num_users, use_gp, working_dir, return_parser=True)
 
-    ##################################
-    #       GEP args                 #
-    ##################################
-    parser.add_argument("--gradients-history-size", type=int,
-                        default=20, help="amount of past gradients participating in embedding subspace computation")
-    parser.add_argument("--basis-size", type=int, default=19, help="number of basis vectors")
-
-    #############################
-    #       Dataset Args        #
-    #############################
-
-    parser.add_argument(
-        "--data-name", type=str, default="keypressemg",
-        choices=['cifar10', 'cifar100', 'putEMG', 'keypressemg'], help="Name of the dataset"
-    )
-    parser.add_argument("--data-path", type=str,
-                        default='./data/EMG/keypressemg/CleanData/valid_features_long_npy',
-                        # default=(Path.cwd() / 'data/valid_user_features').as_posix(),
-                        # default=(Path.home() / 'datasets/EMG/putEMG/Data-HDF5-Features-Small').as_posix(),
-                        help="dir path for dataset")
-    parser.add_argument("--num-clients", type=int, default=num_users, help="total number of clients")
-    parser.add_argument("--num-private-clients", type=int, default=num_users-5, help="number of private clients")
-    parser.add_argument("--num_public_clients", type=int, default=5, help="number of public clients")
-    parser.add_argument("--classes-per-client", type=int, default=26, help="number of classes each client experience")
-
-    #############################
-    #       General args        #
-    #############################
-    parser.add_argument("--gpu", type=int, default=0, help="gpu device ID")
-    parser.add_argument("--eval-every", type=int, default=5, help="eval every X selected epochs")
-    parser.add_argument("--eval-after", type=int, default=10, help="eval only after X selected epochs")
-
-    parser.add_argument("--log-every", type=int, default=5, help="log every X selected epochs")
-    parser.add_argument("--log-dir", type=str, default="./log", help="dir path for logger file")
-    parser.add_argument("--log-name", type=str, default="sweep_keypressemg_gep_public", help="dir path for logger file")
-    parser.add_argument("--log-level", type=int, default=logging.INFO, help="logger filter")
-    parser.add_argument("--csv-path", type=str, default="./csv", help="dir path for csv file")
-    parser.add_argument("--csv-name", type=str, default="keypressemg_gep_public.csv", help="dir path for csv file")
+    parser.add_argument("--sweep_metric_name", type=str, default="val_avg_acc", help="metric to maximize/minimize in sweep")
+    parser.add_argument("--sweep_metric_goal", type=str, default="maximize", choices=['maximize', 'minimize'], help="maximize or minimize in sweep")
 
 
     args = parser.parse_args()
+    args.wandb = True
+    args.log_level = 'INFO'
 
     assert args.gpu <= torch.cuda.device_count(), f"--gpu flag should be in range [0,{torch.cuda.device_count() - 1}]"
 
     logger = get_logger(args)
     logger.info(f"Args: {args}")
 
+    # sweep_configuration = {
+    #     "name": f"gep_public_keypressemg_{args.num_features}_{args.seed}",
+    #     "method": "grid",
+    #     "metric": {"goal": "maximize", "name": "test_best_acc"},
+    #     "parameters": {
+    #         "lr": {"values": [0.1]},
+    #         "global_lr": {"values": [0.999, 0.5]},
+    #         "seed": {"values": [args.seed]},
+    #         "basis-size": {"values": [19]},
+    #         "gradients-history-size": {"values": [20]},
+    #         "num_public_clients": {"values": [5]},
+    #         "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
+    #         "noise_multiplier": {"values": [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]},
+    #         "calibration_split": {"values": [0.0]},
+    #         # "calibration_split": {"values": [0.0, 0.1, 0.2]},
+    #         "inner_steps": {"values": [1]},
+    #         "wd": {"values": [0.0001, 0.001]},
+    #         "num_steps": {"values": [100]},
+    #         "num_client_agg": {"values": [5]},
+    #         "depth_power": {"values": [1]}
+    #     },
+    # }
+
+    sweep_name = f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}"
+    if use_gp:
+        sweep_name = f"GP_{sweep_name}"
     sweep_configuration = {
-        "name": f"gep_public_keypressemg_{args.num_features}_{args.seed}",
-        "method": "grid",
-        "metric": {"goal": "maximize", "name": "test_best_acc"},
+        "name": sweep_name,
+        "method": "bayes",
+        "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"values": [0.1]},
-            "global_lr": {"values": [0.999, 0.5]},
             "seed": {"values": [args.seed]},
-            "basis-size": {"values": [19]},
-            "gradients-history-size": {"values": [20]},
-            "num_public_clients": {"values": [5]},
-            "clip": {"values": [10.0, 1.0, 0.1, 0.01]},
-            "noise_multiplier": {"values": [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]},
-            "calibration_split": {"values": [0.0]},
-            # "calibration_split": {"values": [0.0, 0.1, 0.2]},
-            "inner_steps": {"values": [1]},
-            "wd": {"values": [0.0001, 0.001]},
-            "num_steps": {"values": [100]},
-            "num_client_agg": {"values": [5]},
-            "depth_power": {"values": [1]}
+            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
+            "num_client_agg": {"values": [args.num_client_agg]},
+            "eps": {"values": [args.eps]},
+            "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
+            "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
         },
+        "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
+
+    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/cifar10_sgd_dp_bayes.yaml')
+    sweep_configuration['parameters'] = {**sweep_configuration['parameters'], **load_config(config_path)['parameters']}
+
     sweep(sweep_config=sweep_configuration, args=args,
           train_fn=trainer_keypressemg_gep_public_no_gp.train)
+
+if __name__ == '__main__':
+    main()

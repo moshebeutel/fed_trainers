@@ -73,6 +73,10 @@ train_putemg_gep_public = 'fed_trainers.trainers.gep.trainer_putEMG_gep_public_n
 train_keypressemg_sgd_dp = 'fed_trainers.trainers.dp_sgd.trainer_keypressemg_sgd_dp_no_gp:main'
 train_keypressemg_gep_public = 'fed_trainers.trainers.gep.trainer_keypressemg_gep_public_no_gp:main'
 
+sweep_keypressemg_sgd_dp = 'fed_trainers.sweepers.dp_sgd.sweeper_keypressemg_sgd_dp_no_gp:main'
+sweep_keypressemg_gep_public = 'fed_trainers.sweepers.gep.sweeper_keypressemg_gep_public_no_gp:main'
+sweep_keypressemg_gep_aux = 'fed_trainers.sweepers.gep.sweeper_keypressemg_gep_aux_no_gp:main'
+
 
 [build-system]
 requires = ["poetry-core"]

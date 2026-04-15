@@ -1,18 +1,18 @@
 import copy
-import logging
 from collections import OrderedDict
-from typing import Optional
 import numpy as np
 import torch
 from tqdm import trange
-from fed_trainers.trainers.gep.gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
-    compute_subspace
+from typing import Optional
+
+from fed_trainers.trainers.factory import get_clients, get_model, get_logger
 from fed_trainers.trainers.utils import (get_device, local_train, flatten_tensor, eval_model,
     # update_frame, \
                                          log2wandb, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
-from fed_trainers.trainers.factory import get_clients, get_model, get_logger
+from fed_trainers.trainers.gep.gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
+    compute_subspace
 
 
 def train(args, dataloaders):
@@ -20,7 +20,6 @@ def train(args, dataloaders):
 
     val_avg_loss, val_avg_acc, val_avg_acc_score, val_avg_f1, train_acc_of_best_model = 0.0, 0.0, 0.0, 0.0, 0.0
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
-    reconstruction_similarities = []
     public_clients, private_clients, dummy_clients = get_clients(args)
     all_clients = public_clients + private_clients
     num_public_clients = len(public_clients)
@@ -31,13 +30,9 @@ def train(args, dataloaders):
     net = net.to(device)
     best_model = copy.deepcopy(net)
 
-    basis_gradients: Optional[torch.Tensor] = None
-    basis_gradients_cpu: Optional[torch.Tensor] = None
-
     train_loaders, val_loaders, test_loaders = dataloaders
 
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
-    reconstruction_similarity = 0.0
     num_steps = compute_steps(args)
     logger.info(f'Num steps: {num_steps}')
     steps_in_epoch = compute_steps_in_epoch(args)
@@ -46,18 +41,20 @@ def train(args, dataloaders):
     current_epoch_train_avg_acc_list = []
     current_epoch_train_avg_loss_list = []
     current_epoch_val_avg_acc_list = []
-    current_epoch_val_avg_acc = 0.0
     step_iter = trange(num_steps)
 
     pbar_dict = {'Step': '0', 'Epoch': '0', 'Public_Private?': 'Public_',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
 
+    reconstruction_similarity = 0.0
+    reconstruction_similarities = []
+    basis_gradients: Optional[torch.Tensor] = None
+    basis_gradients_cpu: Optional[torch.Tensor] = None
 
     for step in step_iter:
         # Initialize global model params
         grads = OrderedDict()
-        # public_params = OrderedDict()
         public_grads = OrderedDict()
         prev_params = OrderedDict()
         for n, p in net.named_parameters():
@@ -111,7 +108,6 @@ def train(args, dataloaders):
             train_loader = train_loaders[c_id]
 
             pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3),
-                              #'Client': f'{c_id}'.zfill(3),
                               'Epoch': f'{(step // steps_in_epoch) + 1}'.zfill(3),
                               'Public_Private?': 'Private',
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
