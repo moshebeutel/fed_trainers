@@ -18,7 +18,7 @@ def eval_model(args, global_model, client_ids, train_loaders, eval_loaders, GPs)
     targets = []
     preds = []
     step_results = []
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     global_model.eval()
     num_clients = len(client_ids)
     logger.debug(f'Number of clients in evaluation: {num_clients}')
@@ -30,7 +30,7 @@ def eval_model(args, global_model, client_ids, train_loaders, eval_loaders, GPs)
         train_loader = train_loaders[client_id]
         logger.debug(f'Build tree for client: {client_id}')
         # build tree at each step
-        GPs[client_id], label_map, Y_train, X_train = build_tree(global_model, client_id, train_loader, GPs)
+        GPs[client_id], label_map, Y_train, X_train = build_tree(args, global_model, client_id, train_loader, GPs)
         logger.debug(f'Return from build tree for client: {client_id}')
         GPs[client_id].eval()
         client_data_labels = []
@@ -94,12 +94,12 @@ def eval_model(args, global_model, client_ids, train_loaders, eval_loaders, GPs)
 
 
 @torch.no_grad()
-def build_tree(net, client_id, loader, GPs: torch.nn.ModuleList):
+def build_tree(args, net, client_id, loader, GPs: torch.nn.ModuleList):
     """
     Build GP tree per client
     :return: List of GPs
     """
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     for k, batch in enumerate(loader):
         batch = (t.to(device) for t in batch)
         train_data, clf_labels = batch
@@ -123,14 +123,14 @@ def local_train(args, net, train_loader,
                 GPs: torch.nn.ModuleList,
                 pbar: tqdm, pbar_dict: Dict):
 
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     local_net = copy.deepcopy(net)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
     train_avg_loss = 0.0
 
     # build tree at each step
-    GPs[client_id], label_map, _, __ = build_tree(local_net, client_id, train_loader, GPs)
+    GPs[client_id], label_map, _, __ = build_tree(args, local_net, client_id, train_loader, GPs)
     GPs[client_id].train()
 
     for i in range(args.inner_steps):

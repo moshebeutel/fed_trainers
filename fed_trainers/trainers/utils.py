@@ -41,8 +41,8 @@ def set_seed(seed, cudnn_enabled=True):
 
 
 def get_device(cuda=True, gpus='0'):
-    # return torch.device("cuda:" + gpus if torch.cuda.is_available() and cuda else "cpu")
-    return torch.device("cuda" if torch.cuda.is_available() and cuda else "cpu")
+    return torch.device("cuda:" + gpus if torch.cuda.is_available() and cuda else "cpu")
+    # return torch.device("cuda" if torch.cuda.is_available() and cuda else "cpu")
 
 
 def detach_to_numpy(tensor):
@@ -324,7 +324,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
     # if not hasattr(local_train, 'distance_matrix'):
     #     local_train.distance_matrix = get_distance_matrix(args)
 
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     # distance_matrix: torch.Tensor = local_train.distance_matrix
     # distance_matrix = distance_matrix.to(device)
     local_net: torch.nn.Module = copy.deepcopy(net)
@@ -372,7 +372,7 @@ def local_train(args, net: torch.nn.Module, train_loader, pbar, pbar_dict: Dict)
 
 
 def eval_model(args, global_model, client_ids, loaders, plot_confusion_matrix=False):
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
     loss_dict: Dict[str, float] = {}

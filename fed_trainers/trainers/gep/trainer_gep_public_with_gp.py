@@ -26,8 +26,7 @@ def train(args, dataloaders):
     public_clients, private_clients, dummy_clients = get_clients(args)
     all_clients = public_clients + private_clients
     num_public_clients = len(public_clients)
-    device = get_device()
-    # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
     net = get_model(args)
     net = net.to(device)

@@ -327,8 +327,7 @@ def local_train_with_pruning(args, model, trainloader, noise_multiplier,pbar, pb
     logger = logging.getLogger(args.log_name)
     logger.setLevel(logging.ERROR)
 
-    use_cuda = torch.cuda.is_available()
-    device = get_device(cuda=use_cuda)
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     local_net: torch.nn.Module = copy.deepcopy(model)
     local_net.train()
     optimizer = get_optimizer(args, local_net)

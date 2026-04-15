@@ -1,10 +1,11 @@
 import copy
-import logging
 from collections import OrderedDict
 from typing import Optional, Dict
 import numpy as np
 import torch
+import torch.nn.functional as F
 from tqdm import trange
+from fed_trainers.trainers.factory import get_clients, get_model, get_logger, get_optimizer
 from fed_trainers.trainers.gep.gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
     compute_subspace
 from fed_trainers.trainers.utils import (get_device, local_train, flatten_tensor, eval_model,
@@ -12,15 +13,14 @@ from fed_trainers.trainers.utils import (get_device, local_train, flatten_tensor
                                          log2wandb, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
-from fed_trainers.trainers.factory import get_clients, get_model, get_logger, get_optimizer
-import torch.nn.functional as F
+
 
 def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
     local_net = copy.deepcopy(net)
     local_net.train()
     optimizer = get_optimizer(args, local_net)
     criteria = torch.nn.CrossEntropyLoss()
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     # num_channels = 16
     # num_channels_aux = 24
     # num_features_per_channel = 20
@@ -71,7 +71,7 @@ def train(args, dataloaders):
     val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict = {}, {}, {}, {}
     reconstruction_similarities = []
     public_clients, private_clients, dummy_clients = get_clients(args)
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     # device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
     net = get_model(args)
@@ -231,8 +231,8 @@ def train(args, dataloaders):
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
         # update global net
-        global_lr = args.global_lr ** step
-        logger.debug(f'Global learning rate: {global_lr}')
+        global_lr = args.global_lr
+
         net = load_aggregated_grads_to_global_net(aggregated_grads, net, prev_params, global_lr)
 
         # Evaluate model

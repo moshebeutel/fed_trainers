@@ -20,7 +20,7 @@ def local_user_private_train(args, net, train_loader, pbar, pbar_dict: Dict):
     criteria = torch.nn.CrossEntropyLoss()
     local_net = extend(local_net)
     criteria = extend(criteria)
-    device = get_device()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
     train_avg_loss = 0.0
     grads = OrderedDict()
     for n, p in net.named_parameters():
