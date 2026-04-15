@@ -70,6 +70,7 @@ def main():
             "eps": {"values": [args.eps]},
             "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
             "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
+            "aux_batch_size": {"values": [args.aux_batch_size // 8, args.aux_batch_size // 4, args.aux_batch_size // 2]}
         },
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }

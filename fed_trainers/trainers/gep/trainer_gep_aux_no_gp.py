@@ -21,9 +21,6 @@ def local_aux_train(args, net, train_loader, pbar, pbar_dict: Dict):
     optimizer = get_optimizer(args, local_net)
     criteria = torch.nn.CrossEntropyLoss()
     device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
-    # num_channels = 16
-    # num_channels_aux = 24
-    # num_features_per_channel = 20
     num_classes = args.num_classes
     train_avg_loss = 0.0
     for k, batch in enumerate(train_loader):

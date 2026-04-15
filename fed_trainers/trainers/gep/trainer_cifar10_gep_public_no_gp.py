@@ -4,13 +4,14 @@ import torch
 import wandb
 from fed_trainers.trainers.factory import get_trainer, get_dataloaders, get_logger
 from fed_trainers.trainers.params import add_arguments
-from fed_trainers.trainers.utils import set_seed, get_sigma, compute_steps, \
-    compute_sample_probability, create_wandb_report
+from fed_trainers.trainers.utils import set_seed, log_data_statistics, compute_sample_probability, \
+    compute_steps, get_sigma, create_wandb_report
 
 
 def train(args):
     set_seed(args.seed)
     dataloaders = get_dataloaders(args)
+    log_data_statistics(dataloaders, args)
 
     q = compute_sample_probability(args)
     steps = compute_steps(args)
@@ -18,7 +19,10 @@ def train(args):
     logger.info(f"steps: {steps}")
     logger.info(f"sample probability (q): {q}")
 
-    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps, args.eps, args.delta, rgp=False)
+    args.noise_multiplier, actual_epsilon = (args.noise_multiplier, None) if args.eps < 0 else get_sigma(q, steps,
+                                                                                                         args.eps,
+                                                                                                         args.delta,
+                                                                                                         rgp=False)
 
     logger.info(f"noise_multiplier: {args.noise_multiplier}")
     logger.info(f"actual_epsilon: {actual_epsilon}")
@@ -68,7 +72,6 @@ def main():
         run = wandb.init(project="dec25_sweeps", name=exp_name, tags=[args.run_tag])
         wandb.config.update(args)
         report = create_wandb_report(args)
-
 
     train(args)
 
