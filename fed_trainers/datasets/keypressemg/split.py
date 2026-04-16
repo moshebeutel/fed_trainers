@@ -66,7 +66,10 @@ def get_same_split_day_datasets(root: Path,
                                 day: DayT1T2,
                                 split_ratio: float = 0.8,
                                 shuffle: bool = True,
-                                scale: bool = True) -> Tuple[Dataset, Dataset]:
+                                scale: bool = True,
+                                features_inds: List[int] = None,
+                                channels_inds: List[int] = None
+    ) -> Tuple[Dataset, Dataset]:
     """
     Splits the recordings for a given participant and day into train and test Datasets.
 
@@ -80,6 +83,9 @@ def get_same_split_day_datasets(root: Path,
             Defaults to True.
         scale (bool, optional): Whether to scale the data before splitting.
             Defaults to True.
+        features_inds (List[int]): Indices of features to retain from the dataset. If None, all features are used.
+        channels_inds (List[int]): Indices of channels to retain from the dataset. If None, all c
+
 
     Returns:
         tuple[Dataset, Dataset]: A tuple containing the training and testing datasets
@@ -91,6 +97,12 @@ def get_same_split_day_datasets(root: Path,
     """
 
     X_train, y_train, X_test, y_test = get_same_split_day_arrays(root, participant, day, split_ratio, shuffle, scale)
+    if features_inds is not None:
+        X_train = X_train.reshape(-1, 16, 20)[..., features_inds].reshape(-1, 16 * len(features_inds))
+        X_test = X_test.reshape(-1, 16, 20)[..., features_inds].reshape(-1, 16 * len(features_inds))
+    if channels_inds is not None:
+        X_train = X_train.reshape(-1, 16, 16)[:, channels_inds, :].reshape(-1, 16 * len(channels_inds))
+        X_test = X_test.reshape(-1, 16, 16)[:, channels_inds, :].reshape(-1, 16 * len(channels_inds))
 
     return (TensorDataset(torch.from_numpy(X_train).float(),
                           torch.from_numpy(y_train).long()),

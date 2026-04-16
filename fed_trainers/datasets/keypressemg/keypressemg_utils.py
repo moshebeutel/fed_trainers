@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from torch.utils.data import DataLoader
 
-from fed_trainers.datasets.keypressemg.split import get_split_between_days_dataset
+from fed_trainers.datasets.keypressemg.split import get_split_between_days_dataset, get_same_split_day_datasets
 from fed_trainers.datasets.keypressemg.types import Participant, DayT1T2
 
 
@@ -19,8 +19,8 @@ def load_tests(root: Path, pattern: str) -> np.ndarray:
 
 
 def get_user_list():
-    return [p.value for p in Participant]
-
+    # return [p.value for p in Participant]
+    return [p.value + d.value for p in Participant for d in DayT1T2]
 def get_clients(args):
     num_clients = args.num_clients
     num_private_clients = args.num_private_clients
@@ -37,7 +37,8 @@ def get_clients(args):
     return public_clients, private_clients, dummy_clients
 
 def get_num_users():
-    return len(Participant)
+    # return len(Participant)
+    return len(Participant) * len(DayT1T2)
 
 def get_dataloaders(args):
     train_loaders, val_loaders, test_loaders = {}, {}, {}
@@ -49,18 +50,25 @@ def get_dataloaders(args):
         keep_channels = [0,1,2,3,4,5,6,7]
 
     for p in Participant:
-        train_dataset, test_dataset = get_split_between_days_dataset(root=Path(args.data_path), participant=p,
-                                                                     train_day=DayT1T2.T1, scale=True,
-                                                                     features_inds=keep_features,
-                                                                     channels_inds=keep_channels)
+        for d in DayT1T2:
+            # train_dataset, test_dataset = get_split_between_days_dataset(root=Path(args.data_path), participant=p,
+            #                                                              train_day=DayT1T2.T1, scale=True,
+            #                                                              features_inds=keep_features,
+            #                                                              channels_inds=keep_channels)
 
-        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-        eval_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+            train_dataset, test_dataset = get_same_split_day_datasets(root=Path(args.data_path), participant=p,
+                                                                      day=d, scale=False,
+                                                                      features_inds=keep_features,
+                                                                      channels_inds=keep_channels)
 
-        train_loaders[p.value] = train_loader
-        val_loaders[p.value] = eval_loader
-        test_loaders[p.value] = test_loader
+            train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+            eval_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
+            test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+
+            id = p.value + d.value
+            train_loaders[id] = train_loader
+            val_loaders[id] = eval_loader
+            test_loaders[id] = test_loader
 
     return train_loaders, val_loaders, test_loaders
 
