@@ -10,7 +10,8 @@ from fed_trainers.trainers.params import add_arguments
 def main():
 
     data_name = os.environ.get('DATA_NAME', 'keypressemg')
-    use_gp = os.environ.get('USE_GP', False)
+    # use_gp = os.environ.get('USE_GP', False)
+    use_gp = True
     dp_method = 'gep_public'
 
     num_classes = 26
@@ -67,14 +68,12 @@ def main():
             "seed": {"values": [args.seed]},
             "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
             "num_client_agg": {"values": [args.num_client_agg]},
-            "eps": {"values": [args.eps]},
-            "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
-            "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
+            "eps": {"values": [args.eps]}
         },
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
 
-    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/cifar10_sgd_dp_bayes.yaml')
+    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/keypressemg_gep_bayes.yaml')
     sweep_configuration['parameters'] = {**sweep_configuration['parameters'], **load_config(config_path)['parameters']}
 
     sweep(sweep_config=sweep_configuration, args=args,

@@ -4,14 +4,15 @@ from collections import OrderedDict
 import numpy as np
 import torch
 from tqdm import trange
-from pFedGP.pFedGP.Learner import pFedGPFullLearner
-from fed_trainers.trainers.gp_utils import local_train, eval_model
+
+from fed_trainers.trainers.factory import get_clients, get_model, get_logger
 from fed_trainers.trainers.utils import (get_device, flatten_tensor,
     # update_frame, \
                                          log2wandb, calc_metrics, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
                                          logtest2wandb, wandb_plot_confusion_matrix)
-from fed_trainers.trainers.factory import get_clients, get_model, get_logger
+from fed_trainers.trainers.gp_utils import local_train, eval_model
+from pFedGP.pFedGP.Learner import pFedGPFullLearner
 
 
 def train(args, dataloaders):

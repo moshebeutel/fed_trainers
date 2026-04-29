@@ -26,6 +26,7 @@ class Participant(Enum):
         return self.value.replace('P', '')
 
 
+
 class DayT1T2(Enum):
     T1 = 'T1'
     T2 = 'T2'

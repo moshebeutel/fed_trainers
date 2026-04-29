@@ -20,7 +20,9 @@ def load_tests(root: Path, pattern: str) -> np.ndarray:
 
 def get_user_list():
     # return [p.value for p in Participant]
+    return list(range(0, get_num_users()))
     return [p.value + d.value for p in Participant for d in DayT1T2]
+    # return [(len(Participant) * (int(p.to_num()) - 1) + int(d.to_num()) - 1) for p in Participant for d in DayT1T2]
 def get_clients(args):
     num_clients = args.num_clients
     num_private_clients = args.num_private_clients
@@ -49,6 +51,7 @@ def get_dataloaders(args):
     if args.num_features // args.num_features_per_channel == 8:
         keep_channels = [0,1,2,3,4,5,6,7]
 
+    id = 0
     for p in Participant:
         for d in DayT1T2:
             # train_dataset, test_dataset = get_split_between_days_dataset(root=Path(args.data_path), participant=p,
@@ -57,7 +60,7 @@ def get_dataloaders(args):
             #                                                              channels_inds=keep_channels)
 
             train_dataset, test_dataset = get_same_split_day_datasets(root=Path(args.data_path), participant=p,
-                                                                      day=d, scale=False,
+                                                                      day=d, scale=True,
                                                                       features_inds=keep_features,
                                                                       channels_inds=keep_channels)
 
@@ -65,16 +68,17 @@ def get_dataloaders(args):
             eval_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
             test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
-            id = p.value + d.value
+            # id = p.value + d.value
             train_loaders[id] = train_loader
             val_loaders[id] = eval_loader
             test_loaders[id] = test_loader
+            id+=1
 
     return train_loaders, val_loaders, test_loaders
 
 def add_arguments_keypressemg(parser, working_dir: Path):
     parser.add_argument("--depth_power", type=int, default=1)
-    parser.add_argument("--num-features", type=int, default=256, choices=[256],
+    parser.add_argument("--num-features", type=int, default=128, choices=[128],
                         help="Number of extracted features (model input size)")
     parser.add_argument("--num-features-per-channel", type=int, default=16,
                         help="Number of extracted features per channel")

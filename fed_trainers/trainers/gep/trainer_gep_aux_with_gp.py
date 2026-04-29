@@ -1,19 +1,65 @@
 import copy
 from collections import OrderedDict
-from typing import Optional
+from typing import Optional, Dict
 import numpy as np
 import torch
 from tqdm import trange
-from fed_trainers.trainers.factory import get_clients, get_model, get_logger
+from fed_trainers.trainers.factory import get_clients, get_model, get_logger, get_optimizer
 from fed_trainers.trainers.gep.gep_utils import embed_grad, project_back_embedding, add_new_gradients_to_history, \
     compute_subspace
-from fed_trainers.trainers.gp_utils import local_train, eval_model
+from fed_trainers.trainers.gp_utils import local_train, eval_model, build_tree
 from fed_trainers.trainers.utils import (get_device, flatten_tensor,
     # update_frame, \
-                                         log2wandb, calc_metrics, \
+                                         log2wandb, \
                                          load_aggregated_grads_to_global_net, compute_steps, compute_steps_in_epoch,
-                                         logtest2wandb, wandb_plot_confusion_matrix)
+                                         logtest2wandb, wandb_plot_confusion_matrix, calc_metrics)
 from pFedGP.pFedGP.Learner import pFedGPFullLearner
+
+def local_aux_train(args, net, train_loader,  client_id: int, GPs: torch.nn.ModuleList, pbar, pbar_dict: Dict):
+    local_net = copy.deepcopy(net)
+    local_net.train()
+    optimizer = get_optimizer(args, local_net)
+    criteria = torch.nn.CrossEntropyLoss()
+    device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
+    num_classes = args.num_classes
+    train_avg_loss = 0.0
+
+    # build tree at each step
+    GPs[client_id], label_map, _, __ = build_tree(args, local_net, client_id, train_loader, GPs)
+    GPs[client_id].train()
+
+    for k, batch in enumerate(train_loader):
+        x, label = tuple(t.to(device) for t in batch)
+
+        optimizer.zero_grad()
+
+        # forward prop
+        pred = local_net(x)
+
+        X = torch.cat((X, pred), dim=0) if k > 0 else pred
+        Y = torch.cat((Y, label), dim=0) if k > 0 else label
+
+    offset_labels = torch.tensor([label_map[l.item()] for l in Y], dtype=Y.dtype,
+                                 device=Y.device)
+
+    loss = GPs[client_id](X, offset_labels, to_print=args.eval_every)
+    # loss *= args.loss_scaler
+
+    # propagate loss
+    loss.backward()
+    # torch.nn.utils.clip_grad_norm_(curr_global_net.parameters(), 50)
+    optimizer.step()
+
+    train_avg_loss += loss.item() * offset_labels.shape[0]
+
+    pbar_dict.update({"Inner Step": f'{1}'.zfill(3),
+                      "Train Current Loss": f'{loss.item():5.2f}'})
+    pbar.set_postfix(pbar_dict)
+
+    # end of for k, batch in enumerate(train_loader):
+
+
+    return local_net, train_avg_loss
 
 
 def train(args, dataloaders):
@@ -24,7 +70,6 @@ def train(args, dataloaders):
     reconstruction_similarities = []
     public_clients, private_clients, dummy_clients = get_clients(args)
     all_clients = public_clients + private_clients
-    num_public_clients = len(public_clients)
     device = get_device(cuda=int(args.gpus) >= 0, gpus=args.gpus)
 
     net = get_model(args)
@@ -34,16 +79,22 @@ def train(args, dataloaders):
     basis_gradients: Optional[torch.Tensor] = None
     basis_gradients_cpu: Optional[torch.Tensor] = None
 
-    train_loaders, val_loaders, test_loaders = dataloaders
+    train_loaders, val_loaders, test_loaders, aux_loaders = dataloaders
 
+    aux_clients = aux_loaders.keys()
+    num_aux_clients = len(list(aux_clients))
     num_clients = len(all_clients)
     classes_per_client = args.classes_per_client
     GPs = torch.nn.ModuleList([])
     for client_id in range(num_clients):
         GPs.append(pFedGPFullLearner(args, classes_per_client))  # GP instances
 
+    auxGPs = torch.nn.ModuleList([])
+    for client_id in range(num_aux_clients):
+        auxGPs.append(pFedGPFullLearner(args, 4))  # GP instances
     best_acc, best_epoch, best_loss, best_acc_score, best_f1 = 0., 0, 0., 0., 0.
     reconstruction_similarity = 0.0
+    reconstruction_error = 0.0
     num_steps = compute_steps(args)
     logger.info(f'Num steps: {num_steps}')
     steps_in_epoch = compute_steps_in_epoch(args)
@@ -52,10 +103,9 @@ def train(args, dataloaders):
     current_epoch_train_avg_acc_list = []
     current_epoch_train_avg_loss_list = []
     current_epoch_val_avg_acc_list = []
-    current_epoch_val_avg_acc = 0.0
     step_iter = trange(num_steps)
 
-    pbar_dict = {'Step': '0', 'Epoch': '0', 'Public_Private?': 'Public_',
+    pbar_dict = {'Step': '0', 'Client': '0', 'Auxiliary_Private?': 'Auxiliary',
                  'Client Number in Step': '0', 'Best Epoch': '0', 'Val Avg Acc': '0.0',
                  'Best Avg Acc': '0.0', 'Train Avg Loss': '0.0'}
 
@@ -71,25 +121,23 @@ def train(args, dataloaders):
             public_grads[n] = []
             prev_params[n] = p.detach()
 
-        # *** Local trains on public clients - get gradients for subspace
-        train_avg_loss_public, train_avg_acc_public = 0.0, 0.0
-        for j, c_id in enumerate(public_clients):
+        # *** Local trains on auxiliary public datasets - get gradients for subspace
+        train_avg_loss_aux, train_avg_acc_aux = 0.0, 0.0
+        for j, c_id in enumerate(aux_clients):
 
-            train_loader = train_loaders[c_id]
+            train_loader = aux_loaders[c_id]
 
             pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3), 'Client': f'{c_id}'.zfill(3),
-                              'Public_Private?': 'Public_',
+                              'Auxiliary_Private?': 'Auxiliary',
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
-                              'Train Avg Loss': f'{train_avg_loss_public:.4f}'})
-
-            local_net, train_loss = local_train(args, net, train_loader,
-                                                c_id, GPs,
-                                                pbar=step_iter,
-                                                pbar_dict=pbar_dict)
+                              'Train Avg Loss': f'{train_avg_loss_aux:.4f}'})
+            local_net, train_loss = local_aux_train(args, net, train_loader,
+                                                        c_id, auxGPs,
+                                                        pbar=step_iter,
+                                                        pbar_dict=pbar_dict)
 
             # train_avg_acc_public += (train_acc /num_public_clients)
-            train_avg_loss_public += (train_loss / num_public_clients)
-
+            train_avg_loss_aux += (train_loss / num_aux_clients)
             # get client grads and sum.
             for n, p in local_net.named_parameters():
                 public_grads[n].append(p.data.detach() - prev_params[n])
@@ -98,10 +146,10 @@ def train(args, dataloaders):
 
         public_grads_flat = flatten_tensor(public_grads_list)
 
-        basis_gradients, basis_gradients_cpu, filled_history_size  = add_new_gradients_to_history(public_grads_flat,
-                                                                                                  basis_gradients,
-                                                                                                  basis_gradients_cpu,
-                                                                                                  args.gradients_history_size)
+        basis_gradients, basis_gradients_cpu, filled_history_size = add_new_gradients_to_history(public_grads_flat,
+                                                                                                 basis_gradients,
+                                                                                                 basis_gradients_cpu,
+                                                                                                 args.gradients_history_size)
 
         pca = compute_subspace(basis_gradients[:filled_history_size], args.basis_size, device)
 
@@ -111,45 +159,44 @@ def train(args, dataloaders):
 
         # Sample several clients
         # client_ids_step = np.random.choice(private_clients, size=args.num_client_agg, replace=False)
-        client_ids_step = np.random.choice(all_clients, size=args.num_client_agg, replace=False)
+        client_ids_step = np.random.choice([*public_clients, *private_clients], size=args.num_client_agg, replace=False)
 
+        # Iterate over each client
         train_avg_loss, train_avg_acc = 0.0, 0.0
 
         logger.debug(f"Clients sampled: {client_ids_step}")
         private_clients_mask = torch.ones(size=(len(client_ids_step),), device=device)
         # Iterate over each client
         for j, c_id in enumerate(client_ids_step):
-            private_clients_mask[j] = 1 if c_id in private_clients else 0
+
             train_loader = train_loaders[c_id]
 
-            pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3),
-                              #'Client': f'{c_id}'.zfill(3),
-                              'Epoch': f'{(step // steps_in_epoch) + 1}'.zfill(3),
-                              'Public_Private?': 'Private',
+            pbar_dict.update({'Step': f'{(step + 1)}'.zfill(3), 'Client': f'{c_id}'.zfill(3),
+                              'Auxiliary_Private?': 'Private'.center(9),
                               'Client Number in Step': f'{(j + 1)}'.zfill(3),
                               'Train Avg Loss': f'{train_avg_loss:.4f}',
-                              'Train Current Loss': f'{0.:.2f}'.zfill(5),
+                              'Train Current Loss': f'{0.:.4f}.zfill(3)',
                               'Best Epoch': f'{(best_epoch + 1)}'.zfill(3),
                               'Reconstruction Similarity': f'{reconstruction_similarity:.4f}',
+                              'Reconstruction Error': f'{reconstruction_error:.4f}',
                               'Val Avg Acc': f'{val_avg_acc:.4f}',
                               'Best Avg Acc': f'{best_acc:.4f}'})
 
             local_net, train_loss = local_train(args, net, train_loader,
-                                                    c_id, GPs,
-                                                    pbar=step_iter,
-                                                    pbar_dict=pbar_dict)
+                                                           c_id, GPs,
+                                                           pbar=step_iter,
+                                                           pbar_dict=pbar_dict)
 
-            # train_avg_acc += (train_acc / args.num_client_agg)
             train_avg_loss += (train_loss / args.num_client_agg)
 
             # get client grads
             for n, p in local_net.named_parameters():
                 grads[n].append(p.data.detach() - prev_params[n])
 
-            # current_epoch_train_avg_acc_list.append(train_avg_acc)
-            current_epoch_train_avg_loss_list.append(train_avg_loss)
-            # erase tree (no need to save it)
-            GPs[c_id].tree = None
+        # current_epoch_train_avg_acc_list.append(train_avg_acc)
+        current_epoch_train_avg_loss_list.append(train_avg_loss)
+        # erase tree (no need to save it)
+        GPs[c_id].tree = None
 
         # stack sampled clients grads
         grads_list = [torch.stack(grads[n]) for n, p in net.named_parameters()]
@@ -160,7 +207,7 @@ def train(args, dataloaders):
         # project grads to subspace computed by public grads
         embedded_grads = embed_grad(grads_flattened, pca).to(device)
 
-        # clip grads in embedding subspace
+        # clip grads in embedding  subspace
         embedded_grads_norms = torch.norm(embedded_grads, p=2, dim=-1)
         clip_factor = torch.max(torch.ones_like(embedded_grads_norms), embedded_grads_norms / args.clip)
         embedded_grads_clipped = torch.div(embedded_grads, clip_factor.reshape(-1, 1))
@@ -176,6 +223,7 @@ def train(args, dataloaders):
 
         # aggregate sampled clients embedded grads and project back to gradient space
         reconstructed_grads = project_back_embedding(noised_embedded_grads, pca, device)
+        reconstruction_error = torch.dist(reconstructed_grads, grads_flattened)
 
         # reconstruction error
         norm_reconstructed = torch.norm(reconstructed_grads, p=2, dim=-1, keepdim=True)
@@ -186,6 +234,11 @@ def train(args, dataloaders):
 
         reconstruction_similarity = float(torch.abs(similarity).mean())
         reconstruction_similarities.append(reconstruction_similarity)
+
+        # logger.debug(f'#$% norm_reconstructed: {norm_reconstructed.tolist()}')
+        # logger.debug(f'#$% norm_original: {norm_original.tolist()}')
+        logger.debug(f'#$% norm ratio norm: {float(torch.abs(norm_reconstructed / norm_original).mean()):.4f}')
+        logger.debug(f'#$% reconstruction_similarity: {reconstruction_similarity:.4f}')
 
         aggregated_grads = torch.mean(reconstructed_grads, dim=0)
 
@@ -219,8 +272,8 @@ def train(args, dataloaders):
             current_epoch_grads_norms_list = []
 
             current_epoch_train_avg_loss_list = []
-            # current_epoch_train_avg_acc = np.mean(current_epoch_train_avg_acc_list)
-            current_epoch_train_avg_acc = 0.0
+            current_epoch_train_avg_acc = np.mean(current_epoch_train_avg_acc_list)
+
             current_epoch_train_avg_acc_list = []
             current_epoch_val_avg_acc = np.mean(current_epoch_val_avg_acc_list)
             logger.debug(f'Epoch val acc {current_epoch_val_avg_acc}')
@@ -230,7 +283,7 @@ def train(args, dataloaders):
             if current_epoch_val_avg_acc > best_acc:
                 best_acc = current_epoch_val_avg_acc
                 best_loss = val_avg_loss
-                # train_acc_of_best_model = current_epoch_train_avg_acc
+                train_acc_of_best_model = current_epoch_train_avg_acc
                 # best_acc_score = val_avg_acc_score
                 # best_f1 = val_avg_f1
                 best_epoch = step
@@ -278,11 +331,11 @@ def train(args, dataloaders):
     #     local_net, clib_avg_loss = local_train(args, net, calib_loader,
     #                                            pbar=step_iter, pbar_dict=pbar_dict)
 
-
     # Test best model
-    test_results, labels_vs_preds, step_results, y_true_all, y_pred_all = eval_model(args, best_model, private_clients, train_loaders, test_loaders, GPs)
-    # test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=False)
-    test_avg_loss, test_avg_acc = calc_metrics(test_results)
+    test_results = eval_model(args, best_model, private_clients, test_loaders, plot_confusion_matrix=True)
+
+    y_true_all, y_pred_all, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
+    # _, _, _, _, test_avg_acc, test_avg_loss, test_avg_acc_score, test_avg_f1 = test_results
 
     logger.info(f'## Test Results For Args {args}: test acc {test_avg_acc:.4f}, test loss {test_avg_loss:.4f} ##')
 

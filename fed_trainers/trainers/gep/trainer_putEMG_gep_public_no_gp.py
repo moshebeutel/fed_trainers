@@ -8,7 +8,6 @@ from fed_trainers.trainers.utils import set_seed, log_data_statistics, compute_s
     compute_steps, get_sigma, create_wandb_report
 from fed_trainers.datasets.emg_utils import get_num_users
 
-
 def train(args):
     set_seed(args.seed)
     dataloaders = get_dataloaders(args)

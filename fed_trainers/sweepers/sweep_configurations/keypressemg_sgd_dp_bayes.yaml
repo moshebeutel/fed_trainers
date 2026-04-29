@@ -1,0 +1,24 @@
+parameters:
+  batch_size:
+    values: [16, 32, 64]
+  clip:
+    distribution: log_uniform_values
+    max: 1.0
+    min: 1e-2
+  lr:
+    distribution: log_uniform_values
+    max: 1e-1
+    min: 1e-4
+  lr_dec_rate:
+    distribution: uniform
+    max: 1.0
+    min: 0.9
+  global_lr:
+    distribution: uniform
+    max: 1.0
+    min: 0.2
+  wd:
+    distribution: uniform
+    max: 0.001
+    min: 0.0005
+

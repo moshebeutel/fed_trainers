@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import torch
 from fed_trainers.datasets.emg_utils import get_num_users
-from fed_trainers.sweepers.sweep_utils import sweep
+from fed_trainers.sweepers.sweep_utils import sweep, load_config
 from fed_trainers.trainers import gp_utils
 from fed_trainers.trainers.gep import trainer_putEMG_gep_public_no_gp
 from fed_trainers.trainers.utils import str2bool
@@ -159,21 +159,16 @@ def main():
         "method": "bayes",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "lr": {"min": 1e-2, "max": 1e-1},
-            "lr_dec_rate": {"min": 0.9, "max": 1.0},
-            "global_lr": {"min": 0.1, "max": 1.0},
             "seed": {"values": [args.seed]},
-            "batch_size": {"values": [args.batch_size, args.batch_size *2]},
-            "clip": {"min": 1e-4, "max": 5.0},
-            "wd": {"min": 1e-4, "max": 1e-3},
             "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
             "num_client_agg": {"values": [args.num_client_agg]},
-            "eps": {"values": [args.eps]},
-            "basis_size": {"min": args.basis_size // 2, "max": args.basis_size},
-            "gradients_history_size": {"min": args.gradients_history_size // 2, "max": args.gradients_history_size},
+            "eps": {"values": [args.eps]}
         },
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
+
+    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/keypressemg_sgd_dp_bayes.yaml')
+    sweep_configuration['parameters'] = {**sweep_configuration['parameters'], **load_config(config_path)['parameters']}
 
     sweep(sweep_config=sweep_configuration, args=args,
           train_fn=trainer_putEMG_gep_public_no_gp.train)

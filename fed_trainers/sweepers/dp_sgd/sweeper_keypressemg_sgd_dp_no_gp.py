@@ -74,7 +74,7 @@ def main():
         "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
 
-    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/cifar10_sgd_dp_bayes.yaml')
+    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/keypressemg_sgd_dp_bayes.yaml')
     sweep_configuration['parameters'] = {**sweep_configuration['parameters'], **load_config(config_path)['parameters']}
 
     sweep(sweep_config=sweep_configuration, args=args,
