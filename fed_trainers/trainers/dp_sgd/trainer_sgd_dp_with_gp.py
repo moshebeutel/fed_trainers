@@ -138,7 +138,7 @@ def train(args, dataloaders):
             val_results, labels_vs_preds, step_results, y_true_all, y_pred_all = eval_model(args, net, private_clients, train_loaders, val_loaders,
                                                                             GPs)
             if args.wandb:
-                wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
+                wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)), label="val_confusion_matrix")
 
 
             # val_acc_dict, val_loss_dict, val_acc_score_dict, val_f1s_dict, \
@@ -225,8 +225,7 @@ def train(args, dataloaders):
 
     if args.wandb:
         logtest2wandb(test_avg_acc)
-    if args.wandb:
-        wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)))
+        wandb_plot_confusion_matrix(y_true_all, y_pred_all, list(range(args.num_classes)), label="test_confusion_matrix")
 
     # update_frame(args, dp_method='SGD_DP', epoch_of_best_val=best_epoch, best_val_acc=best_acc,
     #              test_avg_acc=test_avg_acc)
