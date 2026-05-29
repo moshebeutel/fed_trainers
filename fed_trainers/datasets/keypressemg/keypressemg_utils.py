@@ -60,7 +60,7 @@ def get_dataloaders(args):
             #                                                              channels_inds=keep_channels)
 
             train_dataset, test_dataset = get_same_split_day_datasets(root=Path(args.data_path), participant=p,
-                                                                      day=d, scale=True,
+                                                                      day=d, scale=True, split_ratio=0.6,
                                                                       features_inds=keep_features,
                                                                       channels_inds=keep_channels)
 
