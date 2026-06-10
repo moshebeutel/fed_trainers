@@ -58,23 +58,38 @@ def main():
     #         "log_data_statistics": {"values": [False]}
     #     },
     # }
-    sweep_name = f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}"
+    # sweep_name = f"eps{args.eps}_epochs{args.n_epochs}_{dp_method.upper()}_{args.data_name.upper()}_seed{args.seed}"
+    # if use_gp:
+    #     sweep_name = f"GP_{sweep_name}"
+    # sweep_configuration = {
+    #     "name": sweep_name,
+    #     "method": "bayes",
+    #     "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
+    #     "parameters": {
+    #         "seed": {"values": [args.seed]},
+    #         "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
+    #         "num_client_agg": {"values": [args.num_client_agg]},
+    #         "eps": {"values": [args.eps]}
+    #     },
+    #     "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
+    # }
+    #
+    # config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/keypressemg_sgd_dp_bayes.yaml')
+    sweep_name = f"FED_EPS_{args.eps}_{dp_method.upper()}_{args.data_name.upper()}"
     if use_gp:
         sweep_name = f"GP_{sweep_name}"
     sweep_configuration = {
         "name": sweep_name,
-        "method": "bayes",
+        "method": "grid",
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
-            "seed": {"values": [args.seed]},
-            "n_epochs": {"min": args.n_epochs, "max": args.n_epochs + 10},
             "num_client_agg": {"values": [args.num_client_agg]},
             "eps": {"values": [args.eps]}
         },
-        "early_terminate": {"type": "hyperband", "min_iter": 3, "s": 2, "eta": 3}
     }
 
-    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/keypressemg_sgd_dp_bayes.yaml')
+    config_path = os.path.join(working_dir, 'sweepers/sweep_configurations/keypressemg_sgd_dp_grid.yaml')
+
     sweep_configuration['parameters'] = {**sweep_configuration['parameters'], **load_config(config_path)['parameters']}
 
     sweep(sweep_config=sweep_configuration, args=args,

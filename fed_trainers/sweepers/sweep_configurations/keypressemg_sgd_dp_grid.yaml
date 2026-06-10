@@ -1,0 +1,18 @@
+parameters:
+  seed:
+    values: [20]
+  batch_size:
+    values: [512]
+  n_epochs:
+    values: [100]
+  clip:
+    values: [50]
+  lr:
+    values: [0.1, 0.001]
+  lr_dec_rate:
+    values: [0.9, 0.99]
+  global_lr:
+    values: [1.0, 0.8]
+  wd:
+    values: [1e-4]
+
