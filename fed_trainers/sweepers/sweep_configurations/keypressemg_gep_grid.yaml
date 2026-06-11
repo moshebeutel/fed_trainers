@@ -19,4 +19,8 @@ parameters:
     values: [20]
   wd:
     values: [1e-4]
+  gradients_history_size:
+    values: [256]
+  basis_size:
+    values: [256]
 

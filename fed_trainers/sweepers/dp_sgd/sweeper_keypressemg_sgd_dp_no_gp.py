@@ -84,7 +84,6 @@ def main():
         "metric": {"goal": args.sweep_metric_goal, "name": args.sweep_metric_name},
         "parameters": {
             "num_client_agg": {"values": [args.num_client_agg]},
-            "eps": {"values": [args.eps]}
         },
     }
 
